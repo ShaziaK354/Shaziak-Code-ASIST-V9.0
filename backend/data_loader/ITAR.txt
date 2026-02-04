@@ -1,0 +1,944 @@
+# itar_data.py - Real ITAR Data from 22 CFR Part 121 and 126
+# Source: Code of Federal Regulations, Title 22, Chapter I, Subchapter M
+# Last Updated: Based on 2025 Federal Register amendments
+
+"""
+ITAR Knowledge Base - Comprehensive data for compliance checking
+This file contains actual regulatory data from:
+- 22 CFR Part 121 - United States Munitions List (USML)
+- 22 CFR Part 126 - Prohibited Exports and Proscribed Countries
+- 22 CFR Part 120 - Definitions
+"""
+
+# =============================================================================
+# USML CATEGORIES - Complete list from 22 CFR 121.1
+# =============================================================================
+
+USML_CATEGORIES = {
+    "I": {
+        "name": "Firearms, Close Assault Weapons and Combat Shotguns",
+        "description": "Military firearms and related equipment",
+        "risk_level": "high",
+        "controlled_items": [
+            "Firearms using caseless ammunition",
+            "Fully automatic firearms to .50 caliber (12.7 mm) inclusive",
+            "Firearms specially designed to integrate fire control, automatic tracking, or automatic firing (e.g., Precision Guided Firearms)",
+            "Fully automatic shotguns regardless of gauge",
+            "Silencers, mufflers, and sound suppressors",
+            "Barrels, receivers (frames), bolts, bolt carriers, slides, or sears for automatic firearms",
+            "Drum and other magazines with capacity greater than 50 rounds",
+            "Parts and components for conversion of semi-automatic to fully automatic"
+        ],
+        "exclusions": [
+            "Non-automatic and non-semi-automatic rifles, carbines, and pistols between .50 and .72 caliber (CCL ECCN 0A501)",
+            "Shotguns (CCL ECCN 0A502)",
+            "Black powder guns manufactured between 1890 and 1919 (CCL ECCN 0A602)",
+            "Black powder guns manufactured earlier than 1890"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(i)"
+    },
+    "II": {
+        "name": "Guns and Armament",
+        "description": "Guns and armament greater than .50 caliber (12.7 mm)",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Guns, howitzers, artillery, and cannons",
+            "Mortars",
+            "Recoilless rifles",
+            "Grenade launchers",
+            "Developmental guns and armament greater than .50 caliber funded by DoD",
+            "Flamethrowers with effective range >= 20 meters",
+            "Kinetic energy weapon systems specially designed for destruction or rendering mission-abort of a target",
+            "Signature reduction devices (e.g., muzzle flash suppression)"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(k)"
+    },
+    "III": {
+        "name": "Ammunition/Ordnance",
+        "description": "Ammunition and ordnance for military use",
+        "risk_level": "high",
+        "controlled_items": [
+            "Ammunition incorporating controlled projectiles",
+            "Ammunition preassembled into links or belts",
+            "Caseless ammunition manufactured with smokeless powder",
+            "Ammunition based on non-metallic cases",
+            "Ammunition employing pyrotechnic material or tracer materials",
+            "Electromagnetic armament projectiles for weapons with muzzle energy >5 MJ",
+            "Projectiles with depleted uranium",
+            "Guided or unguided projectiles for Category II items"
+        ],
+        "exclusions": [
+            "Ammunition crimped without a projectile (blank star)",
+            "Dummy ammunition with pierced powder chamber",
+            "Cartridge and shell casings rendered useless"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(e)"
+    },
+    "IV": {
+        "name": "Launch Vehicles, Guided Missiles, Ballistic Missiles, Rockets, Torpedoes, Bombs, and Mines",
+        "description": "Rockets, missiles, bombs, torpedoes, and mines",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Rockets, SLVs, and missiles capable of delivering >=500kg payload to >=300km range (MT)",
+            "Rockets, SLVs, and missiles capable of delivering <500kg payload to >=300km range (MT)",
+            "Man-portable air defense systems (MANPADS)",
+            "Anti-tank missiles and rockets",
+            "Bombs",
+            "Torpedoes",
+            "Depth charges",
+            "Anti-personnel, anti-vehicle, or anti-armor land mines",
+            "Anti-helicopter mines",
+            "Naval mines",
+            "Fragmentation and high explosive hand grenades",
+            "Launchers for rockets, SLVs, and missiles",
+            "Non-nuclear warheads (explosive, kinetic, EMP, thermobaric, shape charge, FAE)",
+            "Flight control and guidance systems",
+            "Seeker systems",
+            "Kinetic kill vehicles",
+            "Thrust vector control systems",
+            "Re-entry vehicles and heat shields"
+        ],
+        "exclusions": [
+            "Model and high power rockets (NFPA Code 1122) made of paper, wood, fiberglass, or plastic",
+            "Spacecraft (see Category XV)"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "congressional_notification_required": True,
+        "technical_data_paragraph": "(i)"
+    },
+    "V": {
+        "name": "Explosives and Energetic Materials, Propellants, Incendiary Agents, and Their Constituents",
+        "description": "Military explosives, propellants, and energetic materials",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "HMX (Cyclotetramethylenetetranitramine) - CAS 2691-41-0 (MT)",
+            "RDX (cyclotrimethylenetrinitramine) - CAS 121-82-4 (MT)",
+            "CL-20 (HNIW or Hexanitrohexaazaisowurtzitane) - CAS 135285-90-4 (MT for CL-20)",
+            "TATB (Triaminotrinitrobenzene) - CAS 3058-38-6",
+            "HNS (hexanitrostilbene) - CAS 20062-22-0",
+            "Composite and composite modified double-base propellants (MT)",
+            "Solid propellants with theoretical specific impulse >240-260 seconds",
+            "Ammonium perchlorate (AP) - CAS 7790-98-9 (MT)",
+            "HTPB (hydroxyl-terminated polybutadiene) - CAS 69102-90-5 (MT)",
+            "GAP (glycidyl azide polymer) - CAS 143178-24-9 (MT)",
+            "Ferrocene derivatives (MT)",
+            "Metal fuels (beryllium, boron, zirconium, magnesium in particle form)"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "technical_data_paragraph": "(j)"
+    },
+    "VI": {
+        "name": "Surface Vessels of War and Special Naval Equipment",
+        "description": "Warships, combatant vessels, and naval equipment",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Warships and combatant vessels (battleships, aircraft carriers, destroyers, frigates, cruisers, corvettes, littoral combat ships)",
+            "Mine sweepers, mine hunters, mine countermeasure ships",
+            "Dock landing ships, amphibious assault ships",
+            "Coast Guard Cutters (WHEC, WMEC, WMSL, WPB designations)",
+            "High-speed air cushion vessels with payload >25 tons",
+            "Surface vessels with nuclear propulsion plants",
+            "Vessels armed or specially designed as weapon platforms",
+            "Naval nuclear propulsion plants and prototypes",
+            "Minesweeping and mine hunting equipment",
+            "Control systems for autonomous unmanned vessels"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "congressional_notification_required": True,
+        "technical_data_paragraph": "(g)"
+    },
+    "VII": {
+        "name": "Ground Vehicles",
+        "description": "Armored combat ground vehicles and military ground vehicles",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Tanks",
+            "Infantry fighting vehicles",
+            "Ground vehicles armed or specially designed as firing/launch platforms",
+            "Armored support vehicles (personnel carriers, resupply vehicles, combat engineer vehicles, recovery vehicles)",
+            "Active protection systems",
+            "Armored hulls, turrets, and turret rings",
+            "Composite armor parts and components",
+            "Reactive armor parts and components",
+            "Electromagnetic armor parts and components",
+            "Gun mount, stabilization, turret drive systems",
+            "Self-launching bridge components (class 60+)"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "technical_data_paragraph": "(h)"
+    },
+    "VIII": {
+        "name": "Aircraft and Related Articles",
+        "description": "Military aircraft, helicopters, UAVs, and related equipment",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Bombers (B-1B, B-2, B-21)",
+            "Fighters, fighter bombers, and fixed-wing attack aircraft (F-15SE, F/A-18E/F, EA-18G, F-22, F-35, F-117)",
+            "Turbofan/turbojet-powered trainers for fighter/attack/bomber pilots",
+            "Attack helicopters",
+            "UAVs specially designed to incorporate defense articles (MT if range >=300km)",
+            "Aircraft for ISR functions",
+            "Electronic warfare aircraft",
+            "Airborne warning and control aircraft",
+            "Air refueling aircraft",
+            "Target drones",
+            "Bomb racks, missile launchers, weapon pylons",
+            "Integrated helmets with optical sights (JHMCS, Helmet Mounted Displays)",
+            "Fire control computers, stores management systems"
+        ],
+        "specific_aircraft": [
+            "B-1B", "B-2", "B-21", "F-15SE", "F/A-18E/F", "EA-18G",
+            "F-22", "F-35", "F-47", "F-117", "MQ-25", "RQ-170"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "congressional_notification_required": True,
+        "technical_data_paragraph": "(i)"
+    },
+    "IX": {
+        "name": "Military Training Equipment and Training",
+        "description": "Training equipment, simulators, and training services",
+        "risk_level": "high",
+        "controlled_items": [
+            "Ground, surface, submersible, space, or towed airborne targets with signature mimicking",
+            "Training devices for maintenance or disposal of ordnance",
+            "Air combat maneuvering instrumentation",
+            "Physiological flight trainers for fighter aircraft or attack helicopters",
+            "Radar trainers for Category XI radar",
+            "Anti-submarine warfare trainers",
+            "Missile launch trainers",
+            "Radar target generators",
+            "Infrared scene generators",
+            "System specific simulators",
+            "Software for battle management, military test scenarios, weapons effects modeling"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(e)"
+    },
+    "X": {
+        "name": "Personal Protective Equipment",
+        "description": "Body armor, helmets, and protective equipment",
+        "risk_level": "high",
+        "controlled_items": [
+            "Body armor providing protection >= NIJ Type IV",
+            "Personal protective clothing for radar, IR, or other sensor protection",
+            "Helmets and helmet shells providing protection >= NIJ Type IV",
+            "Integrated helmets with optical sights or slewing devices",
+            "Goggles, spectacles, visors for laser/thermal flash protection (optical density >3)",
+            "Ceramic or composite plates >= NIJ Type IV"
+        ],
+        "exclusions": [
+            "Body armor Type I, Type II, Type IIA, Type IIIA, Type III (ECCNs 1A005, 1A613)"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(e)"
+    },
+    "XI": {
+        "name": "Military Electronics",
+        "description": "Electronic systems and equipment for military use",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Underwater acoustic sensing systems (multi-static, <20kHz, >10kHz bandwidth)",
+            "Underwater acoustic countermeasures systems",
+            "Radar systems (SAR <0.3m resolution, ISAR, air surveillance, ballistic tracking)",
+            "Electronic Combat/Warfare systems (ES, EA, ECM, ECCM)",
+            "Command, control, communications (C3/C4/C4ISR) systems",
+            "Systems with IFF Modes 4 or 5",
+            "ECCM systems (HAVE QUICK, SINCGARS, SATURN)",
+            "TEMPEST compliant equipment",
+            "Unattended ground sensor (UGS) systems",
+            "Magnetic anomaly detectors (MAD)",
+            "Concealed weapons detection systems (>45m range)"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "technical_data_paragraph": "(c)"
+    },
+    "XII": {
+        "name": "Fire Control, Laser, Imaging, and Guidance Equipment",
+        "description": "Fire control systems, lasers, and guidance equipment",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Fire control systems",
+            "Range finders and laser designators",
+            "Target acquisition systems",
+            "Thermal imaging systems for military use",
+            "Image intensifiers and night vision devices",
+            "Laser systems for military applications",
+            "Guidance systems"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "technical_data_paragraph": "(f)"
+    },
+    "XIII": {
+        "name": "Materials and Miscellaneous Articles",
+        "description": "Special materials and miscellaneous defense articles",
+        "risk_level": "medium",
+        "controlled_items": [
+            "Armor plate and related materials",
+            "Metallic materials with special properties",
+            "Composite materials for military use",
+            "Signature reduction materials (radar, IR, acoustic)",
+            "Depleted uranium",
+            "Reactive materials"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(l)"
+    },
+    "XIV": {
+        "name": "Toxicological Agents, Including Chemical Agents, Biological Agents, and Associated Equipment",
+        "description": "Chemical and biological agents and related equipment",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Chemical warfare agents",
+            "Biological warfare agents",
+            "Toxins",
+            "Detection and protection equipment",
+            "Decontamination equipment"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "special_controls": ["CWC", "BWC"],
+        "technical_data_paragraph": "(g)"
+    },
+    "XV": {
+        "name": "Spacecraft and Related Articles",
+        "description": "Spacecraft, satellites, and related systems",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Spacecraft including communications satellites",
+            "Remote sensing spacecraft",
+            "Navigation spacecraft",
+            "Spacecraft buses",
+            "Radiation-hardened electronics for spacecraft",
+            "Space-qualified components",
+            "Ground control equipment",
+            "Space launch integration services"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "congressional_notification_required": True,
+        "special_controls": ["MTCR"],
+        "technical_data_paragraph": "(f)"
+    },
+    "XVI": {
+        "name": "Nuclear Weapons Related Articles",
+        "description": "Nuclear weapons design and related articles",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Nuclear weapons design and test equipment",
+            "Nuclear warhead safing, arming, fuzing, and firing equipment",
+            "Nuclear weapons effects simulators"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "special_controls": ["NRC", "DOE"],
+        "technical_data_paragraph": "(d)"
+    },
+    "XVII": {
+        "name": "Classified Articles, Technical Data, and Defense Services Not Otherwise Enumerated",
+        "description": "Classified defense articles not elsewhere specified",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "Articles, technical data, and defense services that are classified",
+            "Items not otherwise specified in Categories I-XVI"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(c)"
+    },
+    "XVIII": {
+        "name": "Directed Energy Weapons",
+        "description": "Directed energy weapons and related equipment",
+        "risk_level": "maximum",
+        "controlled_items": [
+            "High energy laser systems",
+            "High power microwave systems",
+            "Particle beam weapons",
+            "Directed energy weapon power sources",
+            "Beam control and pointing systems"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(d)"
+    },
+    "XIX": {
+        "name": "Gas Turbine Engines and Associated Equipment",
+        "description": "Military gas turbine engines",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Gas turbine engines for military aircraft",
+            "Engine components (turbine blades, compressor components)",
+            "Engine control systems",
+            "Afterburners",
+            "Thrust reversers"
+        ],
+        "license_required": True,
+        "mt_controlled": True,
+        "technical_data_paragraph": "(g)"
+    },
+    "XX": {
+        "name": "Submersible Vessels and Related Articles",
+        "description": "Submersible vessels and related equipment",
+        "risk_level": "very_high",
+        "controlled_items": [
+            "Submarines and submersible vessels",
+            "Swimmer delivery vehicles",
+            "Underwater propulsion systems",
+            "Pressure hulls",
+            "Submarine periscopes and masts",
+            "Submarine combat systems"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(e)"
+    },
+    "XXI": {
+        "name": "Articles, Technical Data, and Defense Services Not Otherwise Enumerated",
+        "description": "Miscellaneous defense articles, technical data, and services",
+        "risk_level": "variable",
+        "controlled_items": [
+            "Technical data directly related to defense articles",
+            "Defense services (training, technical assistance, maintenance)",
+            "Manufacturing know-how",
+            "Software for defense articles",
+            "Integrated logistics support"
+        ],
+        "license_required": True,
+        "mt_controlled": False,
+        "technical_data_paragraph": "(c)"
+    }
+}
+
+
+# =============================================================================
+# PROSCRIBED/EMBARGOED COUNTRIES - 22 CFR 126.1
+# =============================================================================
+
+PROSCRIBED_COUNTRIES = {
+    # Complete arms embargo - policy is to deny all licenses
+    "arms_embargo": {
+        "Belarus": {
+            "cfr_reference": "126.1(d)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "2006"
+        },
+        "Cuba": {
+            "cfr_reference": "126.1(e)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "1962"
+        },
+        "Iran": {
+            "cfr_reference": "126.1(f)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "1979",
+            "state_sponsor_terrorism": True
+        },
+        "North Korea": {
+            "cfr_reference": "126.1(n)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "1950",
+            "state_sponsor_terrorism": True
+        },
+        "Syria": {
+            "cfr_reference": "126.1(o)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "1979",
+            "state_sponsor_terrorism": True
+        },
+        "Russia": {
+            "cfr_reference": "126.1(l)",
+            "policy": "deny",
+            "description": "Policy to deny licenses except case-by-case for government space cooperation",
+            "exceptions": ["government space cooperation on case-by-case basis"],
+            "effective_date": "2014"
+        },
+        "Venezuela": {
+            "cfr_reference": "126.1(p)",
+            "policy": "deny",
+            "description": "Policy to deny licenses for exports of defense articles and services",
+            "exceptions": [],
+            "effective_date": "2006"
+        }
+    },
+
+    # UN arms embargo countries - case-by-case review possible
+    "un_embargo": {
+        "Afghanistan": {
+            "cfr_reference": "126.1(g)",
+            "policy": "case_by_case",
+            "description": "Deny except case-by-case for Government of Afghanistan or coalition forces",
+            "exceptions": ["Government of Afghanistan", "coalition forces"],
+            "un_resolutions": ["UNSCR 1267", "UNSCR 1988", "UNSCR 1989"]
+        },
+        "Central African Republic": {
+            "cfr_reference": "126.1",
+            "policy": "case_by_case",
+            "description": "Subject to UN arms embargo with exceptions",
+            "exceptions": ["UN operations", "humanitarian assistance"]
+        },
+        "Democratic Republic of the Congo": {
+            "cfr_reference": "126.1(i)",
+            "policy": "case_by_case",
+            "description": "Restrictions on non-governmental entities",
+            "exceptions": ["DRC Government", "UN operations"],
+            "un_resolutions": ["UNSCR 2738"]
+        },
+        "Eritrea": {
+            "cfr_reference": "126.1(h)",
+            "policy": "deny",
+            "description": "Deny for armed forces, police, intelligence, or internal security forces",
+            "exceptions": []
+        },
+        "Haiti": {
+            "cfr_reference": "126.1(j)",
+            "policy": "case_by_case",
+            "description": "Subject to UN arms embargo with exceptions for government",
+            "exceptions": ["Haitian Government", "UN operations"],
+            "un_resolutions": ["UNSCR 2752"]
+        },
+        "Iraq": {
+            "cfr_reference": "126.1",
+            "policy": "case_by_case",
+            "description": "Case-by-case review for government",
+            "exceptions": ["Iraqi Government", "coalition forces"]
+        },
+        "Lebanon": {
+            "cfr_reference": "126.1",
+            "policy": "case_by_case",
+            "description": "Subject to restrictions with exceptions for LAF",
+            "exceptions": ["Lebanese Armed Forces"]
+        },
+        "Libya": {
+            "cfr_reference": "126.1(k)",
+            "policy": "case_by_case",
+            "description": "Subject to UN arms embargo with humanitarian exceptions",
+            "exceptions": [
+                "UN operations",
+                "humanitarian assistance",
+                "protective clothing for personal use"
+            ],
+            "un_resolutions": ["UNSCR 1970", "UNSCR 2009"]
+        },
+        "Somalia": {
+            "cfr_reference": "126.1(m)",
+            "policy": "case_by_case",
+            "description": "Subject to UN arms embargo with government exceptions",
+            "exceptions": ["Federal Government of Somalia", "AMISOM", "UN operations"]
+        },
+        "South Sudan": {
+            "cfr_reference": "126.1",
+            "policy": "case_by_case",
+            "description": "Subject to UN arms embargo",
+            "exceptions": ["UN operations", "humanitarian assistance"]
+        },
+        "Sudan": {
+            "cfr_reference": "126.1",
+            "policy": "deny",
+            "description": "Comprehensive restrictions",
+            "exceptions": []
+        },
+        "Yemen": {
+            "cfr_reference": "126.1",
+            "policy": "case_by_case",
+            "description": "Subject to restrictions",
+            "exceptions": ["Government of Yemen"]
+        }
+    },
+
+    # Crimea and occupied Ukraine regions
+    "occupied_territories": {
+        "Crimea": {
+            "cfr_reference": "126.1",
+            "policy": "deny",
+            "description": "Russian-occupied territory of Ukraine",
+            "effective_date": "2014"
+        },
+        "Donetsk People's Republic (DNR)": {
+            "cfr_reference": "126.1",
+            "policy": "deny",
+            "description": "Russian-occupied territory of Ukraine",
+            "effective_date": "2022"
+        },
+        "Luhansk People's Republic (LNR)": {
+            "cfr_reference": "126.1",
+            "policy": "deny",
+            "description": "Russian-occupied territory of Ukraine",
+            "effective_date": "2022"
+        }
+    }
+}
+
+# State Sponsors of Terrorism (affects ITAR per 126.1(c)(2))
+STATE_SPONSORS_OF_TERRORISM = [
+    "Cuba",
+    "Iran",
+    "North Korea",
+    "Syria"
+]
+
+
+# =============================================================================
+# NATO AND ALLIED COUNTRIES - Reduced restrictions per 22 CFR 126
+# =============================================================================
+
+NATO_MEMBERS = [
+    "Albania", "Belgium", "Bulgaria", "Canada", "Croatia", "Czech Republic",
+    "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+    "Iceland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Montenegro",
+    "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal", "Romania",
+    "Slovakia", "Slovenia", "Spain", "Sweden", "Turkey", "United Kingdom"
+]
+
+MAJOR_NON_NATO_ALLIES = [
+    "Argentina", "Australia", "Bahrain", "Brazil", "Colombia", "Egypt",
+    "Israel", "Japan", "Jordan", "Kenya", "Kuwait", "Morocco", "New Zealand",
+    "Pakistan", "Philippines", "Qatar", "South Korea", "Taiwan", "Thailand",
+    "Tunisia", "Ukraine"
+]
+
+
+# =============================================================================
+# LICENSE TYPES - 22 CFR Part 123, 124, 125
+# =============================================================================
+
+ITAR_LICENSE_TYPES = {
+    "DSP-5": {
+        "name": "Application/License for Permanent Export of Unclassified Defense Articles",
+        "description": "Standard license for permanent export of defense articles",
+        "typical_validity": "4 years",
+        "cfr_reference": "22 CFR 123.1"
+    },
+    "DSP-61": {
+        "name": "Application/License for Temporary Import of Unclassified Defense Articles",
+        "description": "License for temporary import for servicing, exhibition, etc.",
+        "typical_validity": "4 years",
+        "cfr_reference": "22 CFR 123.3"
+    },
+    "DSP-73": {
+        "name": "Application/License for Temporary Export of Unclassified Defense Articles",
+        "description": "License for temporary export for demonstration, exhibition, etc.",
+        "typical_validity": "4 years",
+        "cfr_reference": "22 CFR 123.5"
+    },
+    "DSP-83": {
+        "name": "Non-Transfer and Use Certificate",
+        "description": "Required for certain exports to ensure end-use compliance",
+        "cfr_reference": "22 CFR 123.10"
+    },
+    "DSP-85": {
+        "name": "Application/License for Permanent/Temporary Export of Classified Defense Articles",
+        "description": "License for classified defense articles",
+        "cfr_reference": "22 CFR 125.2"
+    },
+    "TAA": {
+        "name": "Technical Assistance Agreement",
+        "description": "Agreement for defense services involving technical data",
+        "typical_validity": "Negotiated",
+        "cfr_reference": "22 CFR 124.1"
+    },
+    "MLA": {
+        "name": "Manufacturing License Agreement",
+        "description": "Agreement for foreign manufacture of defense articles",
+        "typical_validity": "Negotiated",
+        "cfr_reference": "22 CFR 124.1"
+    },
+    "WDA": {
+        "name": "Warehouse and Distribution Agreement",
+        "description": "Agreement for maintenance of US-origin defense articles abroad",
+        "cfr_reference": "22 CFR 124.1"
+    }
+}
+
+
+# =============================================================================
+# CONGRESSIONAL NOTIFICATION THRESHOLDS - 22 CFR 123.15
+# =============================================================================
+
+CONGRESSIONAL_NOTIFICATION_THRESHOLDS = {
+    "major_defense_equipment": {
+        "NATO_allies_Japan_Australia_NZ_Israel": 25000000,
+        "other_countries": 14000000,
+        "description": "Major defense equipment as defined in AECA Section 47(6)"
+    },
+    "defense_articles_services": {
+        "NATO_allies_Japan_Australia_NZ_Israel": 100000000,
+        "other_countries": 50000000,
+        "description": "Defense articles and services combined value"
+    },
+    "design_construction_services": {
+        "all_countries": 200000000,
+        "description": "Design and construction services"
+    },
+    "significant_military_equipment": {
+        "any_value": True,
+        "description": "SME designated items require notification regardless of value"
+    }
+}
+
+
+# =============================================================================
+# KEY DEFINITIONS - 22 CFR Part 120
+# =============================================================================
+
+ITAR_DEFINITIONS = {
+    "defense_article": {
+        "definition": "Any item or technical data designated in § 121.1 of this subchapter",
+        "cfr_reference": "22 CFR 120.31",
+        "includes": [
+            "Items on the USML",
+            "Technical data",
+            "Defense services"
+        ]
+    },
+    "defense_service": {
+        "definition": "Assistance (including training) to foreign persons in design, development, engineering, manufacture, production, assembly, testing, repair, maintenance, modification, operation, demilitarization, destruction, processing, or use of defense articles",
+        "cfr_reference": "22 CFR 120.32",
+        "includes": [
+            "Technical assistance",
+            "Training",
+            "Military advice"
+        ]
+    },
+    "technical_data": {
+        "definition": "Information required for design, development, production, manufacture, assembly, operation, repair, testing, maintenance, or modification of defense articles",
+        "cfr_reference": "22 CFR 120.33",
+        "includes": [
+            "Blueprints and drawings",
+            "Photographs and plans",
+            "Instructions and documentation",
+            "Software (including source code)"
+        ],
+        "excludes": [
+            "Information in the public domain",
+            "General scientific, mathematical, or engineering principles"
+        ]
+    },
+    "export": {
+        "definition": "Sending or taking a defense article out of the United States, or disclosing technical data to a foreign person",
+        "cfr_reference": "22 CFR 120.50",
+        "includes": [
+            "Physical shipment",
+            "Electronic transmission",
+            "Visual disclosure",
+            "Oral disclosure to foreign persons"
+        ]
+    },
+    "foreign_person": {
+        "definition": "Any natural person who is not a lawful permanent resident or protected individual, or any foreign corporation, business association, partnership, trust, society, or other entity not incorporated in the US",
+        "cfr_reference": "22 CFR 120.62"
+    },
+    "deemed_export": {
+        "definition": "Release of technical data to a foreign person in the United States",
+        "cfr_reference": "22 CFR 120.50",
+        "note": "Treated as export to foreign person's home country"
+    },
+    "broker": {
+        "definition": "Any person who acts as an agent for others in negotiating or arranging contracts, purchases, sales or transfers of defense articles or defense services",
+        "cfr_reference": "22 CFR 129.2",
+        "registration_required": True
+    },
+    "significant_military_equipment": {
+        "definition": "Defense articles for which special export controls are warranted because of capacity for substantial military utility or capability",
+        "cfr_reference": "22 CFR 120.36",
+        "designation": "Marked with asterisk (*) on USML"
+    }
+}
+
+
+# =============================================================================
+# COMPLIANCE TRIGGER TERMS - For keyword detection
+# =============================================================================
+
+ITAR_TRIGGER_TERMS = {
+    "high_priority": [
+        "itar", "usml", "munitions list", "defense article", "defense service",
+        "technical data", "export license", "ddtc", "state department export",
+        "arms export", "defense trade", "foreign military sales", "fms",
+        "significant military equipment", "sme", "classified", "secret",
+        "top secret", "embargo", "proscribed", "prohibited destination"
+    ],
+    "category_specific": {
+        "I": ["firearm", "automatic weapon", "silencer", "suppressor", "machine gun"],
+        "II": ["artillery", "howitzer", "mortar", "grenade launcher", "cannon"],
+        "III": ["ammunition", "ordnance", "projectile", "cartridge", "shell"],
+        "IV": ["missile", "rocket", "torpedo", "bomb", "mine", "manpads", "icbm", "slv", "ballistic"],
+        "V": ["explosive", "propellant", "rdx", "hmx", "energetic material"],
+        "VI": ["warship", "destroyer", "frigate", "submarine", "naval vessel"],
+        "VII": ["tank", "armored vehicle", "infantry fighting vehicle", "ifv"],
+        "VIII": ["military aircraft", "fighter", "bomber", "attack helicopter", "uav", "drone"],
+        "IX": ["military training", "flight simulator", "weapons trainer"],
+        "X": ["body armor", "ballistic protection", "helmet", "nij type iv"],
+        "XI": ["radar", "sonar", "electronic warfare", "ecm", "eccm", "iff"],
+        "XII": ["fire control", "laser designator", "night vision", "thermal imaging"],
+        "XIII": ["armor plate", "composite armor", "stealth material", "signature reduction"],
+        "XIV": ["chemical agent", "biological agent", "toxin", "cw", "bw"],
+        "XV": ["spacecraft", "satellite", "space launch", "rocket engine"],
+        "XVI": ["nuclear weapon", "nuclear warhead", "atomic"],
+        "XVIII": ["directed energy", "laser weapon", "high power microwave"],
+        "XIX": ["jet engine", "turbine engine", "afterburner"],
+        "XX": ["submarine", "submersible", "underwater vehicle"]
+    },
+    "country_risk": [
+        "iran", "north korea", "dprk", "syria", "cuba", "russia", "china",
+        "belarus", "venezuela", "crimea", "donetsk", "luhansk"
+    ],
+    "end_use_concerns": [
+        "military end use", "military end user", "diversion", "re-export",
+        "transshipment", "proliferation", "weapons of mass destruction", "wmd"
+    ]
+}
+
+
+# =============================================================================
+# EXEMPTIONS - 22 CFR Part 123, 125, 126
+# =============================================================================
+
+ITAR_EXEMPTIONS = {
+    "126.4": {
+        "name": "Shipments by or for US Government",
+        "description": "Exports by or for agencies of US Government"
+    },
+    "126.5": {
+        "name": "Canadian Exemptions",
+        "description": "Certain exports to Canada without license"
+    },
+    "126.6": {
+        "name": "Foreign Military Sales",
+        "description": "Exports pursuant to FMS Letters of Offer and Acceptance"
+    },
+    "126.16": {
+        "name": "Australia Exemption",
+        "description": "Defense Trade Cooperation Treaty exemptions for Australia"
+    },
+    "126.17": {
+        "name": "UK Exemption",
+        "description": "Defense Trade Cooperation Treaty exemptions for United Kingdom"
+    },
+    "123.16": {
+        "name": "Temporary Exports",
+        "description": "Certain temporary exports for exhibitions, demonstrations"
+    },
+    "125.4": {
+        "name": "Technical Data Exemptions",
+        "description": "Exemptions for certain technical data disclosures"
+    }
+}
+
+
+# =============================================================================
+# HELPER FUNCTION - Load data into compliance system
+# =============================================================================
+
+def get_itar_knowledge_base():
+    """Return complete ITAR knowledge base for compliance system"""
+    return {
+        "usml_categories": USML_CATEGORIES,
+        "proscribed_countries": PROSCRIBED_COUNTRIES,
+        "state_sponsors_terrorism": STATE_SPONSORS_OF_TERRORISM,
+        "nato_members": NATO_MEMBERS,
+        "major_non_nato_allies": MAJOR_NON_NATO_ALLIES,
+        "license_types": ITAR_LICENSE_TYPES,
+        "congressional_thresholds": CONGRESSIONAL_NOTIFICATION_THRESHOLDS,
+        "definitions": ITAR_DEFINITIONS,
+        "trigger_terms": ITAR_TRIGGER_TERMS,
+        "exemptions": ITAR_EXEMPTIONS,
+        "metadata": {
+            "source": "22 CFR Parts 120-130 (ITAR)",
+            "last_updated": "2025",
+            "authority": "Department of State, Directorate of Defense Trade Controls (DDTC)"
+        }
+    }
+
+
+def get_category_by_keyword(keyword: str) -> list:
+    """Find USML categories matching a keyword"""
+    keyword_lower = keyword.lower()
+    matches = []
+
+    for cat_id, terms in ITAR_TRIGGER_TERMS["category_specific"].items():
+        if any(term in keyword_lower for term in terms):
+            matches.append({
+                "category": cat_id,
+                "name": USML_CATEGORIES[cat_id]["name"],
+                "risk_level": USML_CATEGORIES[cat_id]["risk_level"]
+            })
+
+    return matches
+
+
+def check_country_restrictions(country: str) -> dict:
+    """Check if a country has ITAR restrictions"""
+    country_lower = country.lower()
+
+    # Check arms embargo
+    for c, info in PROSCRIBED_COUNTRIES["arms_embargo"].items():
+        if country_lower in c.lower():
+            return {"restricted": True, "level": "arms_embargo", "details": info}
+
+    # Check UN embargo
+    for c, info in PROSCRIBED_COUNTRIES["un_embargo"].items():
+        if country_lower in c.lower():
+            return {"restricted": True, "level": "un_embargo", "details": info}
+
+    # Check occupied territories
+    for c, info in PROSCRIBED_COUNTRIES["occupied_territories"].items():
+        if country_lower in c.lower():
+            return {"restricted": True, "level": "occupied_territory", "details": info}
+
+    # Check if NATO/MNNA (reduced restrictions)
+    if country in NATO_MEMBERS:
+        return {"restricted": False, "level": "nato_ally", "details": {"favorable_treatment": True}}
+
+    if country in MAJOR_NON_NATO_ALLIES:
+        return {"restricted": False, "level": "major_non_nato_ally", "details": {"favorable_treatment": True}}
+
+    return {"restricted": False, "level": "standard", "details": {}}
+
+
+if __name__ == "__main__":
+    # Test the data
+    print("ITAR Data Module Loaded Successfully")
+    print(f"  - {len(USML_CATEGORIES)} USML Categories")
+    print(f"  - {sum(len(v) for v in PROSCRIBED_COUNTRIES.values())} Proscribed Countries/Territories")
+    print(f"  - {len(NATO_MEMBERS)} NATO Members")
+    print(f"  - {len(MAJOR_NON_NATO_ALLIES)} Major Non-NATO Allies")
+    print(f"  - {len(ITAR_LICENSE_TYPES)} License Types")
+    print(f"  - {len(ITAR_DEFINITIONS)} Key Definitions")
+    print(f"  - {len(ITAR_EXEMPTIONS)} Exemptions")
+
+    # Test keyword matching
+    print("\nTest keyword matching for 'missile':")
+    matches = get_category_by_keyword("missile")
+    for m in matches:
+        print(f"  - Category {m['category']}: {m['name']} (Risk: {m['risk_level']})")
+
+    # Test country check
+    print("\nTest country restrictions:")
+    for country in ["Iran", "Canada", "Japan", "Russia"]:
+        result = check_country_restrictions(country)
+        print(f"  - {country}: {result['level']}, Restricted: {result['restricted']}")

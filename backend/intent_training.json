@@ -1,0 +1,103 @@
+{
+  "exact_matches": {
+    "886ce880557fc4ff174decb448d64e7d": "approval",
+    "66585679ff4aca31a0958a5dc79c44a7": "approval",
+    "3e4751e962de81d8998baf1b9a9da119": "factual"
+  },
+  "keyword_patterns": [
+    {
+      "keywords": [
+        "developing",
+        "case",
+        "mids",
+        "jtrs",
+        "terminals",
+        "outside",
+        "coordination",
+        "approval",
+        "process",
+        "case",
+        "submission"
+      ],
+      "intent": "approval",
+      "question": "I am developing a case for MIDS JTRS terminals and the outside coordination and approval process is taking longer than expected, delaying my case submission. What should I do?",
+      "created_at": "2026-01-28T03:01:46.876779+00:00"
+    },
+    {
+      "keywords": [
+        "approval",
+        "process",
+        "fms",
+        "cases"
+      ],
+      "intent": "approval",
+      "question": "What is the approval process for FMS cases?",
+      "created_at": "2026-01-28T03:12:32.799786+00:00"
+    },
+    {
+      "keywords": [
+        "who",
+        "implementing",
+        "agency",
+        "navy"
+      ],
+      "intent": "factual",
+      "question": "Who is the implementing agency for the Navy?",
+      "created_at": "2026-01-28T04:35:50.781040+00:00",
+      "updated_at": "2026-01-29T15:48:28.640612+00:00"
+    }
+  ],
+  "training_history": [
+    {
+      "question": "I am developing a case for MIDS JTRS terminals and the outside coordination and approval process is taking longer than expected, delaying my case submission. What should I do?",
+      "intent": "approval",
+      "keywords": [
+        "developing",
+        "case",
+        "mids",
+        "jtrs",
+        "terminals",
+        "outside",
+        "coordination",
+        "approval",
+        "process",
+        "case",
+        "submission"
+      ],
+      "timestamp": "2026-01-28T03:01:46.876784+00:00"
+    },
+    {
+      "question": "What is the approval process for FMS cases?",
+      "intent": "approval",
+      "keywords": [
+        "approval",
+        "process",
+        "fms",
+        "cases"
+      ],
+      "timestamp": "2026-01-28T03:12:32.799790+00:00"
+    },
+    {
+      "question": "Who is the implementing agency for the Navy?",
+      "intent": "authority",
+      "keywords": [
+        "who",
+        "implementing",
+        "agency",
+        "navy"
+      ],
+      "timestamp": "2026-01-28T04:35:50.781044+00:00"
+    },
+    {
+      "question": "Who is the implementing agency for the Navy?",
+      "intent": "factual",
+      "keywords": [
+        "who",
+        "implementing",
+        "agency",
+        "navy"
+      ],
+      "timestamp": "2026-01-29T15:48:28.640616+00:00"
+    }
+  ]
+}

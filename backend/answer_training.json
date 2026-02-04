@@ -1,0 +1,52 @@
+{
+  "exact_matches": {
+    "66585679ff4aca31a0958a5dc79c44a7": "This answer has been reviewed and approved by Shazia Kashif 1/27/2026",
+    "3e4751e962de81d8998baf1b9a9da119": "According to SAMM Table C1.T1, the Implementing Agency (IA) for the Navy is the Navy International Programs Office (NIPO)"
+  },
+  "keyword_patterns": [
+    {
+      "keywords": [
+        "approval",
+        "process",
+        "fms",
+        "cases"
+      ],
+      "answer": "This answer has been reviewed and approved by Shazia Kashif 1/27/2026",
+      "question": "What is the approval process for FMS cases?",
+      "created_at": "2026-01-28T03:56:32.496276+00:00"
+    },
+    {
+      "keywords": [
+        "who",
+        "implementing",
+        "agency",
+        "navy"
+      ],
+      "answer": "According to SAMM Table C1.T1, the Implementing Agency (IA) for the Navy is the Navy International Programs Office (NIPO)",
+      "question": "Who is the implementing agency for the Navy?",
+      "created_at": "2026-01-29T15:49:52.499654+00:00"
+    }
+  ],
+  "training_history": [
+    {
+      "question": "What is the approval process for FMS cases?",
+      "keywords": [
+        "approval",
+        "process",
+        "fms",
+        "cases"
+      ],
+      "timestamp": "2026-01-28T03:56:32.496280+00:00"
+    },
+    {
+      "question": "Who is the implementing agency for the Navy?",
+      "keywords": [
+        "who",
+        "implementing",
+        "agency",
+        "navy"
+      ],
+      "timestamp": "2026-01-29T15:49:52.499658+00:00"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "intent_corrections": {
+    "886ce880557fc4ff174decb448d64e7d": "approval",
+    "66585679ff4aca31a0958a5dc79c44a7": "approval",
+    "3e4751e962de81d8998baf1b9a9da119": "factual"
+  },
+  "entity_corrections": {
+    "66585679ff4aca31a0958a5dc79c44a7": [
+      "FMS",
+      "FMS case",
+      "FMS cases",
+      "Foreign Military Sales",
+      "MIDS"
+    ],
+    "3e4751e962de81d8998baf1b9a9da119": [
+      "Implementing Agency",
+      "USN",
+      "Navy"
+    ],
+    "1d0a2ec70f4cbc6736c87bb1582c9ab3": [
+      "Price and Availability",
+      "P&A"
+    ]
+  },
+  "answer_corrections": {
+    "66585679ff4aca31a0958a5dc79c44a7": "This answer has been reviewed and approved by Shazia Kashif 1/27/2026",
+    "3e4751e962de81d8998baf1b9a9da119": "According to SAMM Table C1.T1, the Implementing Agency (IA) for the Navy is the Navy International Programs Office (NIPO)",
+    "1d0a2ec70f4cbc6736c87bb1582c9ab3": "According to SAMM Section 5.3 following subsections, Price and Availability (P&A) data are requested when preliminary data are required by a partner nation or international organization for planning or in anticipation of a purchase under Foreign Military Sales (FMS). P&A data are rough order of magnitude estimates of cost and availability of defense articles or services. These estimates are sufficiently accurate for rough-order planning purposes but should not be used for budget purposes and are not commitments. P&A data are not valid for use in preparing a Letter of Offer and Acceptance (LOA). The term P&A data is not used to reference data being developed for an LOA. Instead, data compiled for an LOA are referred to as LOA data (LOAD). When responding to requests for P&A data, the Implementing Agency (IA) ensures that:\n1. The DoD Component can recommend release of the articles and/or services.\n2. If the purchaser were to request an LOA, it could be provided (i.e., further clearances such as Congressional Notification (CN) or disclosure approval are obtainable).\n3. The purchaser knows to submit a Letter of Request (LOR) to request an LOA if it wants to pursue the purchase.\nMore information about P&As and P&A data can be found in SAMM Sections C5.3.2-C5.3.6 and SAMM Table C5.T5"
+  },
+  "correction_history": [
+    {
+      "type": "intent",
+      "question": "I am developing a case for MIDS JTRS terminals and the outside coordination and approval process is taking longer than expected, delaying my case submission. What should I do?",
+      "correction": "approval",
+      "timestamp": "2026-01-28T03:01:46.876738+00:00"
+    },
+    {
+      "type": "intent",
+      "question": "What is the approval process for FMS cases?",
+      "correction": "approval",
+      "timestamp": "2026-01-28T03:12:32.799753+00:00"
+    },
+    {
+      "type": "entity",
+      "question": "What is the approval process for FMS cases?",
+      "correction": [
+        "FMS",
+        "FMS case",
+        "FMS cases",
+        "Foreign Military Sales",
+        "MIDS"
+      ],
+      "added": "MIDS",
+      "removed": null,
+      "timestamp": "2026-01-28T03:48:32.522582+00:00"
+    },
+    {
+      "type": "answer",
+      "question": "What is the approval process for FMS cases?",
+      "timestamp": "2026-01-28T03:56:32.496246+00:00"
+    },
+    {
+      "type": "intent",
+      "question": "Who is the implementing agency for the Navy?",
+      "correction": "authority",
+      "timestamp": "2026-01-28T04:35:50.781006+00:00"
+    },
+    {
+      "type": "intent",
+      "question": "Who is the implementing agency for the Navy?",
+      "correction": "factual",
+      "timestamp": "2026-01-29T15:48:28.640576+00:00"
+    },
+    {
+      "type": "entity",
+      "question": "Who is the implementing agency for the Navy?",
+      "correction": [
+        "Implementing Agency",
+        "USN"
+      ],
+      "added": "USN",
+      "removed": null,
+      "timestamp": "2026-01-29T15:48:52.861087+00:00"
+    },
+    {
+      "type": "entity",
+      "question": "Who is the implementing agency for the Navy?",
+      "correction": [
+        "Implementing Agency",
+        "USN",
+        "Navy"
+      ],
+      "added": "Navy",
+      "removed": null,
+      "timestamp": "2026-01-29T15:49:12.392738+00:00"
+    },
+    {
+      "type": "answer",
+      "question": "Who is the implementing agency for the Navy?",
+      "timestamp": "2026-01-29T15:49:52.499621+00:00"
+    },
+    {
+      "type": "entity",
+      "question": "I got a request for a Price and Availability. What is that?",
+      "correction": [
+        "Price and Availability",
+        "P&A"
+      ],
+      "added": null,
+      "removed": "UND",
+      "timestamp": "2026-01-30T20:08:14.558216+00:00"
+    },
+    {
+      "type": "answer",
+      "question": "I got a request for a Price and Availability. What is that?",
+      "timestamp": "2026-01-30T20:08:38.497790+00:00"
+    }
+  ]
+}

@@ -1,0 +1,426 @@
+<template>
+  <div class="overview-dashboard">
+    <!-- Charts Section -->
+    <div class="charts-grid">
+      <!-- Financial Summary Card -->
+      <div class="chart-card financial-card">
+        <div class="chart-header center">
+          <h3 class="chart-title">Financial Summary</h3>
+        </div>
+        <div class="financial-grid">
+          <div class="financial-item">
+            <span class="financial-label">Adj Net RSN Total:</span>
+            <span class="financial-value">${{ financialData.adjNetRSN }}</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Total OA Received:</span>
+            <span class="financial-value">${{ financialData.totalOAReceived }}</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Gross Commitments:</span>
+            <span class="financial-value">${{ financialData.grossCommitments }}</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Gross Obligations:</span>
+            <span class="financial-value">${{ financialData.grossObligations }}</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Expended:</span>
+            <span class="financial-value blue">${{ financialData.expended }}</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Total ULOs:</span>
+            <span class="financial-value red">${{ financialData.totalULOs }}</span>
+          </div>
+          <div class="financial-item highlight">
+            <span class="financial-label">Total Available Funding:</span>
+            <span class="financial-value green">${{ financialData.availableFunding }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funding Document Status -->
+      <div class="chart-card funding-status-card">
+        <div class="chart-header center">
+          <h3 class="chart-title">Funding Document Status</h3>
+        </div>
+        <div class="donut-wrapper">
+          <svg class="donut-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="70" fill="none" stroke="#e5e7eb" stroke-width="28"/>
+            <circle cx="100" cy="100" r="70" fill="none" stroke="#1e3a5f" stroke-width="28"
+              :stroke-dasharray="getDonutSegment(fundingStatus.active, fundingTotal)"
+              stroke-dashoffset="0" transform="rotate(-90 100 100)"/>
+            <circle cx="100" cy="100" r="70" fill="none" stroke="#f59e0b" stroke-width="28"
+              :stroke-dasharray="getDonutSegment(fundingStatus.pending, fundingTotal)"
+              :stroke-dashoffset="getDonutOffset(fundingStatus.active, fundingTotal)"
+              transform="rotate(-90 100 100)"/>
+            <circle cx="100" cy="100" r="70" fill="none" stroke="#ef4444" stroke-width="28"
+              :stroke-dasharray="getDonutSegment(fundingStatus.expired, fundingTotal)"
+              :stroke-dashoffset="getDonutOffset(fundingStatus.active + fundingStatus.pending, fundingTotal)"
+              transform="rotate(-90 100 100)"/>
+            <text x="100" y="95" text-anchor="middle" class="donut-value">{{ fundingTotal }}</text>
+            <text x="100" y="115" text-anchor="middle" class="donut-label">Total</text>
+          </svg>
+          <div class="donut-legend">
+            <span><span class="dot green"></span>Active ({{ fundingStatus.active }})</span>
+            <span><span class="dot yellow"></span>Pending ({{ fundingStatus.pending }})</span>
+            <span><span class="dot red"></span>Expired ({{ fundingStatus.expired }})</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts & Insights Section -->
+    <div class="alerts-section">
+      <h3 class="section-title"><i class="fas fa-bell"></i> Alerts & Insights</h3>
+      <div class="alerts-grid">
+        <div
+          v-for="alert in alerts"
+          :key="alert.id"
+          :class="['alert-card', alert.severity]"
+        >
+          <div class="alert-card-header">
+            <span class="alert-date">{{ alert.date }}</span>
+            <span :class="['alert-badge', alert.severity]">{{ alert.severity.toUpperCase() }}</span>
+          </div>
+          <div class="alert-card-body">
+            <p class="alert-text">{{ alert.text }}</p>
+          </div>
+          <div class="alert-card-footer">
+            <a v-if="alert.link" href="#" class="alert-action" @click.stop>{{ alert.linkText }} →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue';
+
+// Financial Data
+const financialData = ref({
+  adjNetRSN: '254.46M',
+  totalOAReceived: '254.46M',
+  grossCommitments: '195.32M',
+  grossObligations: '2.98M',
+  expended: '1.18M',
+  totalULOs: '1.79M',
+  availableFunding: '59.14M'
+});
+
+// Funding Status
+const fundingStatus = ref({ active: 7, pending: 2, expired: 1 });
+const fundingTotal = computed(() => fundingStatus.value.active + fundingStatus.value.pending + fundingStatus.value.expired);
+
+// Alerts Data
+const alerts = ref([
+  { id: 1, date: '9/30/2025', text: 'N0002425WX12345 for NAVSEA Salary expired', link: true, linkText: 'View in N-ERP', severity: 'critical' },
+  { id: 2, date: '11/23/2025', text: 'Action items 004, 005, 007, 011, 016, 026 responses are due', link: true, linkText: 'View Report', severity: 'warning' },
+  { id: 3, date: '11/27/2025', text: 'YELLOW CEPT violation will appear on Lines 001 & 003', link: true, linkText: 'View Report', severity: 'warning' },
+  { id: 4, date: '11/30/2025', text: 'ACR is due', link: true, linkText: 'View in SCIP', severity: 'info' },
+  { id: 5, date: '3/31/2026', text: 'Line 005 expires - Consider processing a modification to extend MOS', link: false, severity: 'info' }
+]);
+
+// Donut chart helpers
+function getDonutSegment(value, total) {
+  const c = 2 * Math.PI * 70;
+  return `${(value / total) * c} ${c}`;
+}
+
+function getDonutOffset(consumed, total) {
+  const c = 2 * Math.PI * 70;
+  return -((consumed / total) * c);
+}
+</script>
+
+<style scoped>
+* { box-sizing: border-box; }
+
+.overview-dashboard {
+  padding: 12px;
+  background: #f8fafc;
+  min-height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Charts Grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+
+.chart-card {
+  background: white;
+  border-radius: 6px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chart-header.center {
+  justify-content: center;
+}
+
+.chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+/* Financial Card - Compact */
+.financial-card {
+  
+  
+  padding: 12px;
+}
+
+.financial-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.financial-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.financial-item.highlight {
+  grid-column: span 2;
+  background: #f0fdf4;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.financial-label {
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.financial-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.financial-value.blue { color: #2563eb; }
+.financial-value.red { color: #dc2626; }
+.financial-value.green { color: #1e3a5f; }
+
+/* Funding Status Card - Compact */
+.funding-status-card {
+  
+  
+  padding: 12px;
+}
+
+/* Donut Chart - 50% smaller */
+.donut-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.donut-svg {
+  width: 200px;
+  height: 200px;
+}
+
+.donut-value {
+  font-size: 28px;
+  font-weight: 700;
+  fill: #1f2937;
+}
+
+.donut-label {
+  font-size: 9px;
+  fill: #6b7280;
+}
+
+.donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.donut-legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: #4b5563;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot.green { background: #1e3a5f; }
+.dot.yellow { background: #f59e0b; }
+.dot.red { background: #ef4444; }
+
+/* Alerts Section */
+.alerts-section {
+  width: 100%;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-title i {
+  color: #dc2626;
+}
+
+.alerts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.alert-card {
+  background: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.alert-card.critical {
+  border-left: 4px solid #dc2626;
+}
+
+.alert-card.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.alert-card.info {
+  border-left: 4px solid #3b82f6;
+}
+
+.alert-card-header {
+  gap: 2px !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.alert-date {
+  
+  white-space: nowrap;
+  font-size: 9px;
+  font-size: 9px;
+  color: #6b7280;
+  font-weight: 500;
+  min-width: auto;
+}
+
+.alert-badge {
+  margin-left: auto;
+  font-size: 7px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.alert-badge.critical {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.alert-badge.warning {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.alert-badge.info {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.alert-card-body {
+  text-align: left;
+  
+  flex: 1;
+}
+
+.alert-text {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 9px;
+  color: #1f2937;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.alert-card-footer {
+  flex-shrink: 0;
+}
+
+.alert-action {
+  font-size: 9px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.alert-action:hover {
+  color: #1d4ed8;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 500px) {
+  .financial-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

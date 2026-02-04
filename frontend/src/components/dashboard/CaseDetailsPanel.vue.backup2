@@ -1,0 +1,359 @@
+<template>
+  <section class="case-details-panel" v-if="displayCaseData">
+    <div class="case-header">
+      <div class="case-title-main-area"> 
+        <div class="case-title-container">
+          <h2 id="activeCaseTitle">
+            <span id="activeCaseNumberDisplay" class="case-number-title">{{ displayCaseData.caseNumber || 'N/A' }}:</span>
+            <span id="activeCaseDescriptionDisplay" class="case-description-title">{{ displayCaseData.caseDescription || displayCaseData.caseName || 'No Description' }}</span>
+          </h2>
+          <div class="search-bar-case">
+            <span class="nav-icon"><i class="fas fa-search"></i></span>
+            <input type="text" placeholder="Search this case..." title="Search within this case">
+          </div>
+        </div>
+        <div class="case-meta">
+          <div class="case-meta-item case-status-open" title="Case Status">
+            <span class="nav-icon"><i class="fas fa-check-circle"></i></span>
+            <span>Case Status: <strong>Open</strong></span>
+          </div>
+          <div class="case-meta-item" title="Implementation Date">
+            <span class="nav-icon"><i class="far fa-calendar-check"></i></span>
+            <span>Implemented: {{ formatDate(displayCaseData.implementationDate || displayCaseData.implementedDate) }}</span>
+          </div>
+          <div class="case-meta-item" title="Case Value">
+            <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
+            <span>Value: {{ formatCurrency(displayCaseData.estimatedValue || displayCaseData.value) }}</span>
+          </div>
+          <div class="case-meta-item" title="LOA Status">
+            <span class="nav-icon"><i class="far fa-file-alt"></i></span>
+            <span>LOA: {{ displayCaseData.loaStatus || displayCaseData.loa || 'N/A' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="case-status">
+        <div class="status-badge" :class="statusBadgeClass">{{ displayCaseData.status || 'Unknown' }}</div>
+      </div>
+    </div>
+
+    <nav class="tabs">
+      <div 
+        v-for="tab in tabs" 
+        :key="tab.id" 
+        class="tab" 
+        :class="{ active: localActiveTab === tab.id }"
+        @click="selectTab(tab.id)"
+        role="tab"
+        :aria-selected="localActiveTab === tab.id"
+        :aria-controls="`${tab.id}ContentVue`" 
+      >
+        {{ tab.name }}
+      </div>
+    </nav>
+  </section>
+  <section v-else class="case-details-panel placeholder">
+    <p>No case selected or case data not available.</p>
+    <p v-if="caseStore.isLoadingCases">Loading cases...</p>
+    <p v-if="caseStore.caseError">Error loading case data: {{ caseStore.caseError }}</p>
+  </section>
+</template>
+
+<script setup>
+import { ref, defineProps, defineEmits, computed, watch, onMounted } from 'vue';
+import { useCaseStore } from '@/stores/caseStore';
+
+const props = defineProps({
+  activeCaseData: {
+    type: Object,
+    default: () => null
+  }
+});
+
+const emit = defineEmits(['tab-selected', 'case-changed']);
+const caseStore = useCaseStore();
+
+const caseDescriptions = {
+  'SR-P-NAV': {
+    caseDescription: 'Naval Strike Missiles (NSM), associated support equipment, training, and technical services',
+    estimatedValue: 284961260,
+    loaStatus: 'Implemented',
+    implementationDate: '2025-05-30T00:00:00Z'
+  },
+  'TW-P-MSL': {
+    caseDescription: 'Harpoon Block II Missiles, exercise missiles, launchers, fire control equipment, and technical services',
+    estimatedValue: 688537980,
+    loaStatus: 'Implemented',
+    implementationDate: '2025-08-15T00:00:00Z'
+  },
+  'AT-P-SYS': {
+    caseDescription: 'Air Defense Systems, radar equipment, and integration services',
+    estimatedValue: 98500000,
+    loaStatus: 'BASIC',
+    implementationDate: null
+  },
+  'FR-P-SHP': {
+    caseDescription: 'Naval Vessel Support, spare parts, and maintenance services',
+    estimatedValue: 45000000,
+    loaStatus: 'BASIC',
+    implementationDate: null
+  }
+};
+
+const displayCaseData = computed(() => {
+  if (!props.activeCaseData) return null;
+  
+  const caseNumber = props.activeCaseData.caseNumber || props.activeCaseData.id;
+  const enrichment = caseDescriptions[caseNumber] || {};
+  
+  return {
+    ...props.activeCaseData,
+    caseDescription: props.activeCaseData.caseDescription || enrichment.caseDescription || props.activeCaseData.caseName || 'Case Details',
+    estimatedValue: props.activeCaseData.estimatedValue || props.activeCaseData.value || enrichment.estimatedValue || 0,
+    loaStatus: props.activeCaseData.loaStatus || props.activeCaseData.loa || enrichment.loaStatus || 'N/A',
+    implementationDate: enrichment.implementationDate || props.activeCaseData.implementationDate || props.activeCaseData.implementedDate
+  };
+});
+
+const tabs = ref([
+  { id: 'overview', name: 'Overview' },
+  { id: 'timeline', name: 'Timeline' },
+  { id: 'financial', name: 'Financial' },
+  { id: 'logistics', name: 'Logistics' },
+  { id: 'reports', name: 'Reports' },
+  { id: 'documents', name: 'Documents' }
+]);
+
+const localActiveTab = ref('overview'); 
+
+const selectTab = (tabId) => {
+  console.log(`[CaseDetailsPanel] Tab selected: ${tabId}`);
+  localActiveTab.value = tabId;
+  emit('tab-selected', tabId); 
+};
+
+const statusBadgeClass = computed(() => {
+  if (!displayCaseData.value || !displayCaseData.value.status) return 'status-unknown';
+  const status = displayCaseData.value.status.toLowerCase();
+  if (status === 'active' || status === 'imported') return 'status-active';
+  if (status === 'implemented') return 'status-implemented';
+  if (status === 'closed') return 'status-closed';
+  return 'status-other';
+});
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    return 'N/A';
+  }
+  const numberValue = Number(value);
+  return `$${numberValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    } catch (e) {
+        return 'Invalid Date';
+    }
+};
+
+// ✅ FIXED: Watch for case changes but PRESERVE the current tab
+watch(() => props.activeCaseData, (newCaseData, oldCaseData) => {
+  const newCaseId = newCaseData?.id || newCaseData?.caseNumber;
+  const oldCaseId = oldCaseData?.id || oldCaseData?.caseNumber;
+  
+  console.log("[CaseDetailsPanel] activeCaseData prop updated:", newCaseId);
+  console.log("[CaseDetailsPanel]   Previous case:", oldCaseId);
+  console.log("[CaseDetailsPanel]   Current tab:", localActiveTab.value);
+  
+  if (newCaseData && oldCaseData && newCaseId !== oldCaseId) {
+    // ✅ Case changed - KEEP the same tab, just signal that case changed
+    console.log(`[CaseDetailsPanel] Case switched from ${oldCaseId} to ${newCaseId}, staying on tab: ${localActiveTab.value}`);
+    
+    // Emit case-changed event with the current tab
+    emit('case-changed', { 
+      caseId: newCaseId, 
+      previousCaseId: oldCaseId,
+      activeTab: localActiveTab.value 
+    });
+    
+    // Re-emit tab-selected to trigger tab content refresh with new case data
+    // Use nextTick to ensure the case data is updated first
+    setTimeout(() => {
+      console.log(`[CaseDetailsPanel] Re-emitting tab-selected: ${localActiveTab.value}`);
+      emit('tab-selected', localActiveTab.value);
+    }, 50);
+  } else if (newCaseData && !oldCaseData) {
+    // Initial load - emit current tab
+    console.log("[CaseDetailsPanel] Initial case load, emitting tab:", localActiveTab.value);
+    emit('tab-selected', localActiveTab.value);
+  }
+}, { immediate: true, deep: true });
+
+onMounted(() => {
+    if (displayCaseData.value) {
+        console.log("[CaseDetailsPanel] Mounted with case:", displayCaseData.value.caseNumber);
+        console.log("[CaseDetailsPanel] Current tab:", localActiveTab.value);
+    } else {
+        console.log("[CaseDetailsPanel] Mounted with no active case data.");
+    }
+    // Emit initial tab on mount
+    emit('tab-selected', localActiveTab.value);
+});
+
+</script>
+
+<style scoped>
+.case-details-panel {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm); 
+  flex-shrink: 0; 
+}
+.case-details-panel.placeholder {
+    text-align: center;
+    color: #777;
+    padding: var(--space-lg);
+}
+
+.case-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start; 
+  margin-bottom: var(--space-sm);
+  gap: var(--space-md);
+}
+
+.case-title-main-area {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.case-title-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 1;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.case-title-container h2 {
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.case-number-title {
+    font-weight: 600;
+    margin-right: var(--space-xs);
+    white-space: nowrap;
+}
+.case-description-title {
+    font-weight: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dark);
+}
+
+.search-bar-case {
+  display: flex;
+  align-items: center;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  padding: var(--space-xs) var(--space-sm);
+  width: 250px;
+  max-width: 300px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.search-bar-case .nav-icon { 
+  color: var(--text-dark);
+  margin-right: var(--space-xs);
+  font-size: 0.9rem;
+}
+.search-bar-case input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.85rem;
+  background: transparent;
+}
+
+.case-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: #666;
+}
+.case-meta-item {
+  display: flex;
+  align-items: center;
+}
+.case-meta-item .nav-icon { 
+  margin-right: var(--space-xs);
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.case-meta-item.case-status-open {
+  color: #10b981;
+  font-weight: 500;
+}
+.case-meta-item.case-status-open .nav-icon {
+  color: #10b981;
+}
+.case-meta-item.case-status-open strong {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.case-status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.status-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
+.status-badge.status-active { background-color: var(--success); }
+.status-badge.status-implemented { background-color: var(--accent); } 
+.status-badge.status-closed { background-color: var(--secondary); } 
+.status-badge.status-unknown, .status-badge.status-other { background-color: var(--border); color: var(--text-dark); }
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0; 
+}
+.tab {
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+  transition: color 0.2s ease, border-bottom-color 0.2s ease;
+}
+.tab:hover {
+  color: var(--accent);
+}
+.tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+</style>

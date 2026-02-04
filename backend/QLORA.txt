@@ -1,0 +1,203 @@
+RAG Graph QLoRA System
+A comprehensive Graph RAG (Retrieval-Augmented Generation) system with QLoRA (Quantized Low-Rank Adaptation) fine-tuning capabilities, built for integration with Ollama.
+Features
+•	Graph-Based RAG: N-hop relationship traversal (1-3+ hops) for deep context retrieval
+•	QLoRA Fine-Tuning: 4-bit quantized LoRA adapters for domain adaptation
+•	Hybrid Re-Ranking: Combines embedding similarity, keyword matching, and boost scoring
+•	Knowledge Graph: JSON-based entity and relationship management
+•	Vector Database: ChromaDB integration for semantic search
+•	Gold Standard Patterns: Pattern matching for verified high-quality responses
+•	Caching: TTL-based response caching with LRU eviction
+•	Ollama Integration: Native support for local LLM inference
+Quick Start
+1. Install Dependencies
+bash
+pip install -r requirements.txt
+2. Start Ollama
+bash
+# Install Ollama (https://ollama.ai)
+ollama serve
+
+# Pull a model
+ollama pull llama3.1:8b
+3. Basic Usage
+python
+from rag_graph_qlora import RAGGraphQLoRA, RAGConfig
+
+# Initialize
+config = RAGConfig(
+    ollama_url="http://localhost:11434",
+    ollama_model="llama3.1:8b"
+)
+rag = RAGGraphQLoRA(config)
+
+# Add documents
+docs = [
+    {
+        'id': 'doc1',
+        'content': 'Your document content here...',
+        'metadata': {'section': '1.1', 'type': 'definition'}
+    }
+]
+rag.add_documents(docs)
+
+# Query
+result = rag.query("What is machine learning?")
+print(result['answer'])
+Components
+Knowledge Graph
+python
+# Load from JSON
+rag.load_knowledge_graph("knowledge_graph.json")
+
+# Add entities
+rag.knowledge_graph.add_entity("entity1", {
+    'id': 'entity1',
+    'type': 'concept',
+    'properties': {'label': 'My Entity', 'definition': '...'}
+})
+
+# Add relationships
+rag.knowledge_graph.add_relationship(
+    "entity1", "entity2", "related_to",
+    description="Description of relationship"
+)
+Gold Standard Patterns
+python
+# Add a gold pattern for verified responses
+rag.add_gold_pattern(
+    pattern_id="MY_PATTERN",
+    trigger_phrases=["keyword 1", "keyword 2"],
+    concept="My Concept",
+    must_retrieve={'sections': ['1.1'], 'tables': ['Table 1']},
+    answer_guidance={
+        'start_with': "According to...",
+        'must_mention': ["term1", "term2"],
+        'must_explain': ["point1", "point2"]
+    }
+)
+QLoRA Fine-Tuning
+python
+# Enable QLoRA
+config = RAGConfig(qlora_enabled=True)
+rag = RAGGraphQLoRA(config)
+
+# Initialize with base model
+rag.initialize_qlora("meta-llama/Llama-2-7b-hf")
+
+# Train on Q&A pairs
+qa_pairs = [
+    {
+        'question': 'What is X?',
+        'answer': 'X is...',
+        'context': 'Context about X...'
+    }
+]
+rag.train_qlora(qa_pairs, epochs=3)
+Flask API
+python
+from rag_graph_qlora import RAGGraphQLoRA, create_api
+
+rag = RAGGraphQLoRA()
+app = create_api(rag)
+app.run(host='0.0.0.0', port=5000)
+API Endpoints:
+•	POST /api/query - Query the RAG system
+•	GET /api/status - Get system status
+•	POST /api/documents - Add documents
+•	GET /api/health - Health check
+Configuration
+python
+@dataclass
+class RAGConfig:
+    # Ollama
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:8b"
+    ollama_timeout: int = 200
+    
+    # Vector DB
+    vector_db_path: str = "./chroma_db"
+    embedding_model: str = "all-MiniLM-L6-v2"
+    collection_name: str = "rag_documents"
+    
+    # QLoRA
+    qlora_enabled: bool = True
+    qlora_r: int = 16
+    qlora_alpha: int = 32
+    qlora_dropout: float = 0.05
+    
+    # Re-ranking weights
+    embedding_weight: float = 0.5
+    keyword_weight: float = 0.3
+    boost_weight: float = 0.2
+    
+    # Retrieval
+    initial_fetch_count: int = 20
+    final_return_count: int = 8
+    max_hops: int = 3
+    
+    # Cache
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 3600
+Knowledge Graph JSON Format
+json
+{
+  "metadata": {
+    "name": "My Knowledge Graph",
+    "version": "1.0"
+  },
+  "entities": {
+    "concepts": {
+      "entity1": {
+        "type": "concept",
+        "label": "Entity Label",
+        "definition": "Definition...",
+        "section": "1.1"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "source": "entity1",
+      "target": "entity2",
+      "type": "related_to",
+      "description": "Description",
+      "weight": 5
+    }
+  ]
+}
+Architecture
+┌─────────────────────────────────────────────────────────────┐
+│                    RAG Graph QLoRA System                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐  │
+│  │  Entity  │   │ Knowledge│   │  Vector  │   │  Hybrid  │  │
+│  │Extractor │──▶│  Graph   │──▶│ Database │──▶│ Reranker │  │
+│  └──────────┘   └──────────┘   └──────────┘   └──────────┘  │
+│       │              │              │              │         │
+│       ▼              ▼              ▼              ▼         │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Context Builder                          │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                          │                                   │
+│                          ▼                                   │
+│  ┌──────────┐   ┌──────────────────────┐   ┌──────────┐    │
+│  │   Gold   │──▶│   Ollama / QLoRA     │──▶│  Cache   │    │
+│  │ Trainer  │   │      Generator       │   │ Manager  │    │
+│  └──────────┘   └──────────────────────┘   └──────────┘    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+Performance Tips
+1.	Use Caching: Enable cache for repeated queries
+2.	Gold Patterns: Add patterns for common query types
+3.	Hybrid Reranking: Tune weights for your domain
+4.	Graph Depth: Limit max_hops for faster traversal
+5.	Batch Documents: Add documents in batches of 100+
+Based On
+This system is based on the SAMM Agent Architecture v5.9.11, featuring:
+•	2-Hop Path RAG for relationship traversal
+•	Hybrid re-ranking with keyword + embedding + boost scoring
+•	Gold Standard Training for verified Q&A patterns
+•	Integrated database orchestration
+

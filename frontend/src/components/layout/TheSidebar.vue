@@ -1,0 +1,749 @@
+<template>
+  <aside class="sidebar" :class="{ collapsed: isCollapsed }">
+    <div class="sidebar-header">
+      <div class="logo">
+        <button class="sidebar-toggle-btn" @click="toggleSidebarState" :title="isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="logo-text" v-if="!isCollapsed">
+          <h1>ASIST</h1>
+        </div>
+      </div>
+      <div class="user-info">
+        <div class="user-avatar">{{ displayInitials }}</div>
+        <div class="user-details" v-if="!isCollapsed">
+          <div class="name">{{ displayName }}</div>
+          <div class="role">{{ displayRole }}</div>
+        </div>
+      </div>
+      <div class="case-search" :class="{ 'collapsed-search-clickable': isCollapsed }" @click="handleCollapsedSearchClick">
+        <span class="nav-icon-search"><i class="fas fa-search"></i></span>
+        <input
+          type="text"
+          placeholder="Search cases..."
+          id="caseSearchInputSidebar"
+          title="Search cases in sidebar"
+          v-if="!isCollapsed"
+          v-model="sidebarSearchTerm"
+          @input="filterCasesInSidebar"
+          ref="sidebarSearchInputRef"
+        >
+      </div>
+    </div>
+
+    <div class="cases-scroll-area">
+      <!-- Portfolio Link -->
+      <div class="quick-access-section portfolio-section">
+        <div 
+          class="quick-access-item portfolio-link"
+          :class="{ active: isOnPortfolio }"
+          @click="goToPortfolio"
+          title="View Portfolio"
+        >
+          <span class="nav-icon item-icon">
+            <i class="fas fa-briefcase"></i>
+          </span>
+          <div class="quick-access-text" v-if="!isCollapsed">Portfolio</div>
+        </div>
+      </div>
+
+      <div class="quick-access-section" id="pinnedCasesSectionVue">
+        <div class="quick-access-header">
+            <span v-if="!isCollapsed">Pinned Cases</span>
+            <span v-else class="nav-icon header-icon" title="Pinned Cases">
+                <i class="fas fa-thumbtack"></i>
+            </span>
+        </div>
+        <div
+          v-for="pinnedCase in renderedPinnedCases"
+          :key="pinnedCase.id"
+          class="quick-access-item"
+          :title="pinnedCase.name"
+          @click="handleCaseSelection(pinnedCase.id)"
+          :class="{ active: localSelectedCaseId === pinnedCase.id && !isOnPortfolio }"
+        >
+          <span class="nav-icon item-icon">
+            <span v-if="isCollapsed" class="collapsed-text-icon">{{ pinnedCase.iconText }}</span>
+            <i v-else class="fas fa-thumbtack"></i>
+          </span>
+          <div class="quick-access-text" v-if="!isCollapsed">{{ pinnedCase.id }}</div>
+          <button
+            class="pin-button always-visible-pin"
+            :class="{ pinned: true }"
+            @click.stop="callTogglePinCase(pinnedCase.id)"
+            :title="'Unpin ' + pinnedCase.id"
+            v-if="!isCollapsed"
+          >
+            <i class="fas fa-star"></i>
+          </button>
+        </div>
+        <div v-if="!isCollapsed && renderedPinnedCases.length === 0" class="empty-state-message">No pinned cases.</div>
+      </div>
+
+      <div class="quick-access-section" id="recentCasesSectionVue">
+        <div class="quick-access-header" v-if="!isCollapsed || (isCollapsed && recentCasesData.length > 0)">
+            <span v-if="!isCollapsed">Recent Cases</span>
+            <span v-else-if="isCollapsed && recentCasesData.length > 0" class="nav-icon header-icon" title="Recent Cases">
+                <i class="fas fa-history"></i>
+            </span>
+        </div>
+        <div
+          v-for="recentCaseItem in recentCasesData"
+          :key="recentCaseItem.id"
+          class="quick-access-item"
+          :title="recentCaseItem.name"
+          @click="handleCaseSelection(recentCaseItem.id)"
+          :class="{ active: localSelectedCaseId === recentCaseItem.id && !isOnPortfolio }"
+        >
+          <span class="nav-icon item-icon">
+            <span v-if="isCollapsed" class="collapsed-text-icon">{{ recentCaseItem.iconText }}</span>
+            <i v-else class="fas fa-history"></i>
+          </span>
+          <div class="quick-access-text" v-if="!isCollapsed">{{ recentCaseItem.id }}</div>
+           <button
+            v-if="!isCollapsed"
+            class="pin-button"
+            :class="{ pinned: isCasePinned(recentCaseItem.id) }"
+            @click.stop="callTogglePinCase(recentCaseItem.id)"
+            :title="isCasePinned(recentCaseItem.id) ? 'Unpin case' : 'Pin case'"
+          >
+            <i :class="isCasePinned(recentCaseItem.id) ? 'fas fa-star' : 'far fa-star'"></i>
+          </button>
+        </div>
+        <div v-if="!isCollapsed && recentCasesData.length === 0" class="empty-state-message">No recent cases.</div>
+      </div>
+
+      <div class="countries-container">
+        <div class="countries-list" id="countriesListVue">
+          <div class="countries-header" v-if="!isCollapsed">
+            <h2>Your Assigned Countries</h2>
+          </div>
+          <div class="country-with-cases" v-for="country in filteredCasesByCountry" :key="country.code">
+            <!-- Country Header -->
+            <div class="country-item" :title="country.name" @click="toggleCountryExpanded(country.code)">
+              <span class="country-chevron" v-if="!isCollapsed">
+                <i :class="expandedCountries[country.code] ? 'fas fa-chevron-down' : 'fas fa-chevron-right'"></i>
+              </span>
+              <span v-if="isCollapsed" class="nav-icon item-icon collapsed-text-icon country-code-icon">{{ country.code.toUpperCase() }}</span>
+              <span v-else :class="['nav-icon', 'item-icon', 'country-code-icon']">{{ country.code.toUpperCase() }}</span>
+
+              <div class="country-name" v-if="!isCollapsed">{{ country.name }}</div>
+            </div>
+            
+            <!-- Cases under this country -->
+            <div class="country-cases-list" v-if="!isCollapsed && expandedCountries[country.code]">
+              <div
+                v-for="caseItem in country.cases"
+                :key="caseItem.id"
+                class="quick-access-item case-under-country"
+                :title="caseItem.name"
+                @click.stop="handleCaseSelection(caseItem.id)"
+                :class="{ active: localSelectedCaseId === caseItem.id && !isOnPortfolio }"
+              >
+                <span class="nav-icon item-icon">
+                  <i class="fas fa-folder"></i>
+                </span>
+                <div class="quick-access-text">{{ caseItem.id }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="settings-container" title="Settings" @click="openSettings">
+        <span class="nav-icon item-icon"><i class="fas fa-cog"></i></span>
+        <div class="settings-text" v-if="!isCollapsed">Settings</div>
+      </div>
+      <div class="settings-container logout-item" title="Logout" @click="triggerLogout">
+        <span class="nav-icon item-icon"><i class="fas fa-sign-out-alt"></i></span>
+        <div class="settings-text" v-if="!isCollapsed">Logout</div>
+      </div>
+    </div>
+  </aside>
+</template>
+
+<script setup>
+import { ref, defineProps, defineEmits, computed, onMounted, nextTick, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useCaseStore } from '@/stores/caseStore';
+
+const props = defineProps({
+  isCollapsed: Boolean,
+  userProfile: {
+    type: Object,
+    default: () => null
+  },
+  userInitials: {
+    type: String,
+    default: 'TE'
+  },
+  currentActiveCaseId: {
+    type: String,
+    default: null
+  }
+});
+const emit = defineEmits(['toggleSidebar', 'caseSelected', 'openSettings', 'logoutUser']);
+
+const router = useRouter();
+const route = useRoute();
+const caseStore = useCaseStore();
+
+// ✅ Override user display - always show Travis Eiswerth
+const displayName = computed(() => 'Travis Eiswerth');
+const displayRole = computed(() => 'Case Manager');
+const displayInitials = computed(() => 'TE');
+
+// Check if currently on Portfolio page
+const isOnPortfolio = computed(() => {
+  return route.name === 'Portfolio' || route.path === '/';
+});
+
+// Track which countries are expanded - only selected case's country is expanded
+const expandedCountries = ref({
+  'SA': false,
+  'TW': false,
+  'AU': false,
+  'FR': false
+});
+
+// Track selected country to sort it to top
+const selectedCountryCode = ref(null);
+
+function toggleCountryExpanded(countryCode) {
+  // If clicking to expand, collapse all others first
+  if (!expandedCountries.value[countryCode]) {
+    Object.keys(expandedCountries.value).forEach(code => {
+      expandedCountries.value[code] = false;
+    });
+  }
+  expandedCountries.value[countryCode] = !expandedCountries.value[countryCode];
+  
+  // If expanding, set as selected country to sort to top
+  if (expandedCountries.value[countryCode]) {
+    selectedCountryCode.value = countryCode;
+  }
+}
+
+// Auto-expand country when case is selected, collapse others
+function expandCountryForCase(caseId) {
+  if (!caseId) return;
+  
+  // Find which country this case belongs to
+  for (const country of casesByCountry.value) {
+    const hasCase = country.cases.some(c => c.id === caseId);
+    expandedCountries.value[country.code] = hasCase;
+    if (hasCase) {
+      selectedCountryCode.value = country.code;
+    }
+  }
+}
+
+// Hardcoded Cases - 1 case per country as requested
+const saudiArabiaCases = ref([
+  { id: 'SR-P-NAV', name: 'Naval Strike Missiles (NSM)', country: 'Saudi Arabia', countryCode: 'SA', iconText: 'SR', status: 'Active' }
+]);
+
+const taiwanCases = ref([
+  { id: 'TW-P-MSL', name: 'Tactical Weapon Missile System', country: 'Taiwan', countryCode: 'TW', iconText: 'TW', status: 'Active' }
+]);
+
+const australiaCases = ref([
+  { id: 'AT-P-SUB', name: 'Submarine Defense Systems', country: 'Australia', countryCode: 'AU', iconText: 'AU', status: 'Active' }
+]);
+
+const franceCases = ref([
+  { id: 'FR-P-AVN', name: 'Aviation Support Package', country: 'France', countryCode: 'FR', iconText: 'FR', status: 'Active' }
+]);
+
+const hardcodedCases = ref([
+  ...saudiArabiaCases.value,
+  ...taiwanCases.value,
+  ...australiaCases.value,
+  ...franceCases.value
+]);
+
+const casesByCountry = ref([
+  { code: 'SA', name: 'Saudi Arabia', cases: saudiArabiaCases.value },
+  { code: 'TW', name: 'Taiwan', cases: taiwanCases.value },
+  { code: 'AU', name: 'Australia', cases: australiaCases.value },
+  { code: 'FR', name: 'France', cases: franceCases.value }
+]);
+
+const recentCasesDataBase = ref([
+  ...saudiArabiaCases.value,
+  ...taiwanCases.value,
+  ...australiaCases.value,
+  ...franceCases.value
+].slice(0, 4));
+
+// Computed to sort selected case to top of recent cases
+const recentCasesData = computed(() => {
+  if (!localSelectedCaseId.value) {
+    return recentCasesDataBase.value;
+  }
+  
+  const sorted = [...recentCasesDataBase.value];
+  sorted.sort((a, b) => {
+    if (a.id === localSelectedCaseId.value) return -1;
+    if (b.id === localSelectedCaseId.value) return 1;
+    return 0;
+  });
+  return sorted;
+});
+const renderedPinnedCases = ref([]);
+const pinnedCaseIds = ref([]);
+
+const sidebarSearchTerm = ref('');
+const sidebarSearchInputRef = ref(null);
+const localSelectedCaseId = ref(props.currentActiveCaseId || null);
+
+watch(() => props.currentActiveCaseId, (newId) => {
+    localSelectedCaseId.value = newId;
+});
+
+const filteredCasesByCountry = computed(() => {
+    let countries = [...casesByCountry.value];
+    
+    // Sort selected country to top
+    if (selectedCountryCode.value) {
+      countries.sort((a, b) => {
+        if (a.code === selectedCountryCode.value) return -1;
+        if (b.code === selectedCountryCode.value) return 1;
+        return 0;
+      });
+    }
+    
+    // Sort cases within each country - selected case to top
+    countries = countries.map(country => {
+      let sortedCases = [...country.cases];
+      if (localSelectedCaseId.value) {
+        sortedCases.sort((a, b) => {
+          if (a.id === localSelectedCaseId.value) return -1;
+          if (b.id === localSelectedCaseId.value) return 1;
+          return 0;
+        });
+      }
+      return { ...country, cases: sortedCases };
+    });
+    
+    // Apply search filter if present
+    if (!sidebarSearchTerm.value) {
+        return countries;
+    }
+    const term = sidebarSearchTerm.value.toLowerCase();
+    return countries.map(country => ({
+        ...country,
+        cases: country.cases.filter(c =>
+            c.id.toLowerCase().includes(term) ||
+            c.name.toLowerCase().includes(term)
+        )
+    })).filter(country => country.cases.length > 0);
+});
+
+function toggleSidebarState() {
+  emit('toggleSidebar');
+}
+
+// ✅ Navigate to Dashboard when case is selected
+function handleCaseSelection(caseId) {
+  console.log('[TheSidebar] Case selected:', caseId);
+  localSelectedCaseId.value = caseId;
+  
+  // Expand only this case's country, collapse others
+  expandCountryForCase(caseId);
+  
+  // Set active case in store
+  caseStore.setActiveCase(caseId);
+  
+  // Navigate to Dashboard
+  router.push({ name: 'Dashboard', params: { caseId } });
+  
+  // Also emit for parent components
+  emit('caseSelected', caseId);
+}
+
+// Navigate to Portfolio - only if not already there
+function goToPortfolio() {
+  if (isOnPortfolio.value) {
+    console.log('[TheSidebar] Already on Portfolio, skipping navigation');
+    return;
+  }
+  console.log('[TheSidebar] Navigating to Portfolio');
+  localSelectedCaseId.value = null;
+  router.push({ name: 'Portfolio' });
+}
+
+function openSettings() {
+  emit('openSettings');
+}
+
+function triggerLogout() {
+  emit('logoutUser');
+}
+
+function isCasePinned(caseId) {
+  return pinnedCaseIds.value.includes(caseId);
+}
+
+function callTogglePinCase(caseId) {
+  const index = pinnedCaseIds.value.indexOf(caseId);
+  if (index !== -1) {
+    pinnedCaseIds.value.splice(index, 1);
+  } else {
+    pinnedCaseIds.value.push(caseId);
+  }
+  updateRenderedPinnedCases();
+}
+
+function updateRenderedPinnedCases() {
+  renderedPinnedCases.value = hardcodedCases.value.filter(c => pinnedCaseIds.value.includes(c.id));
+}
+
+function filterCasesInSidebar() {
+  // Filtering is handled by computed property
+}
+
+function handleCollapsedSearchClick() {
+  if (props.isCollapsed) {
+    emit('toggleSidebar');
+    nextTick(() => {
+      if (sidebarSearchInputRef.value) {
+        sidebarSearchInputRef.value.focus();
+      }
+    });
+  }
+}
+
+onMounted(() => {
+  updateRenderedPinnedCases();
+  // Expand country for currently selected case
+  if (localSelectedCaseId.value) {
+    expandCountryForCase(localSelectedCaseId.value);
+  }
+});
+</script>
+
+<style scoped>
+.sidebar {
+  --sidebar-header-padding: 16px;
+}
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  background-color: var(--primary);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.3s ease;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  overflow: hidden;
+  --sidebar-header-padding: 16px;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+}
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .case-search input,
+.sidebar.collapsed .user-details,
+.sidebar.collapsed .quick-access-text,
+.sidebar.collapsed .country-name,
+.sidebar.collapsed .settings-text,
+.sidebar.collapsed .case-text,
+.sidebar.collapsed .countries-header,
+.sidebar.collapsed .country-cases-list {
+  display: none;
+}
+.sidebar.collapsed .case-search {
+  justify-content: center;
+  cursor: pointer;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+  padding: var(--space-md);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+.logo h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-left: var(--space-sm);
+}
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: var(--space-xs);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-toggle-btn:hover {
+  opacity: 1;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding: var(--space-xs) 0;
+}
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background-color: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: white;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.sidebar.collapsed .user-avatar {
+  margin: 0 auto;
+}
+.user-details {
+  margin-left: var(--space-sm);
+  min-width: 0;
+}
+.user-details .name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-details .role {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.case-search {
+  display: flex;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.nav-icon-search {
+  color: var(--text-light);
+  margin-right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.sidebar.collapsed .nav-icon-search {
+  font-size: 1.2rem;
+  margin-right: 0;
+}
+.case-search input {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+  font-size: 0.8rem;
+  flex-grow: 1;
+}
+.case-search input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cases-scroll-area {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-bottom: var(--space-md);
+  color: var(--text-light);
+}
+
+.portfolio-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.portfolio-link {
+  background: rgba(255, 255, 255, 0.05);
+  margin: var(--space-xs) var(--space-sm);
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.portfolio-link:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.portfolio-link.active {
+  background: var(--accent) !important;
+}
+
+.quick-access-section {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.quick-access-header {
+  padding: 0 var(--sidebar-header-padding) var(--space-xs);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+  color: var(--text-light);
+}
+.empty-state-message {
+    padding: var(--space-xs) var(--sidebar-header-padding);
+    font-size: 0.8rem;
+    opacity: 0.7;
+    color: var(--text-light);
+}
+
+.quick-access-item, .country-item, .settings-container {
+  padding: var(--space-xs) var(--sidebar-header-padding);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.85rem;
+  min-height: 30px;
+  color: var(--text-light);
+}
+.quick-access-item:hover, .country-item:hover, .settings-container:hover {
+  background-color: rgba(46, 7, 221, 0.423);
+}
+.quick-access-item.active {
+    background-color: var(--accent) !important;
+    color: white !important;
+}
+
+.nav-icon.item-icon {
+  width: 20px;
+  min-width: 20px;
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+.sidebar.collapsed .nav-icon.item-icon {
+  margin-right: 0;
+  font-size: 1.2rem;
+  color: var(--text-light);
+}
+.collapsed-text-icon {
+    font-weight: 600;
+    color: var(--text-light);
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.quick-access-text, .country-name, .settings-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-grow: 1;
+  color: inherit;
+}
+
+.pin-button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  opacity: 0.7;
+  font-size: 0.9rem;
+  padding: var(--space-xs);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pin-button:hover { opacity: 1; }
+.pin-button.pinned .fa-star { color: var(--warning); }
+
+.countries-list { padding: var(--space-md) 0; }
+.countries-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--sidebar-header-padding) var(--space-sm);
+}
+.countries-header h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.6;
+  color: var(--text-light);
+}
+
+.country-code-icon {
+    margin-right: var(--space-sm);
+    color: var(--text-light);
+    font-weight: 600;
+}
+.sidebar.collapsed .country-item .country-code-icon {
+    margin-right: 0;
+}
+
+/* Chevron for expand/collapse */
+.country-chevron {
+  width: 16px;
+  min-width: 16px;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  color: var(--text-light);
+}
+.sidebar.collapsed .country-chevron {
+  display: none;
+}
+
+/* Cases under country - simple indented list */
+.country-cases-list {
+  padding-left: 20px;
+}
+
+.case-under-country {
+  padding-left: 24px;
+  font-size: 0.8rem;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-container {
+  border-top: none;
+  color: var(--text-light);
+}
+.logout-item:hover {
+  background-color: rgba(231, 76, 60, 0.2);
+}
+.logout-item .nav-icon i {
+  color: var(--danger);
+}
+</style>
