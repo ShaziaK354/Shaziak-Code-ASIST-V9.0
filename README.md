@@ -670,4 +670,4 @@ pm2 logs
 
 | Name | Role |
 |------|------|
-| **ShaziaK354** | Lead Developer, AI/ML Integration |
+| **ShaziaK354** | Tech Lead, AI/ML Integration |
