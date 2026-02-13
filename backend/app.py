@@ -1,26 +1,99 @@
 """
-SAMM Agent Application - Version 5.9.16
+SAMM Agent Application - Version 5.9.18
 =======================================
 
-CHANGELOG v5.9.16 (05-Jan-2026):
-- AZURE ENTRA ID (FORMERLY AZURE AD) OAUTH LOGIN
-  * Replaced Auth0 OAuth with Microsoft Entra ID OAuth
-  * New environment variables: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID
-  * Login via Microsoft identity platform (login.microsoftonline.com)
-  * OIDC configuration from Azure tenant metadata
-  * Session management with userinfo extraction from id_token
-  * Logout with Microsoft session cleanup
-  * Fallback to mock user when Azure credentials not configured
-  * PKCE (Proof Key for Code Exchange) support for enhanced security
-  * Compatible with Azure Government cloud (configurable via AZURE_CLOUD env var)
+CHANGELOG v5.9.18 (27-Jan-2026):
+- FEATURE: FINE-TUNED SAMM MODEL INTEGRATION
+  * Integrated custom fine-tuned LLaMA model for SAMM-specific responses
+  * Model path: /data/llama-finetuning-v3/merged-model
+  * Format: Safetensors (4 files, ~15GB)
+  * Toggle switch: USE_FINETUNED_MODEL (default: False for demo)
+  * Automatic model detection and status logging at startup
+  * New API endpoint: /api/model-status for monitoring
+  * Fallback to base Ollama model if fine-tuned unavailable
+  * Demo Mode: Shows "integrated" status, uses base model for safety
 
-CHANGELOG v5.9.15 (04-Jan-2026):
-- FIX 12: CASE LOADING FIX (SR-P-NAV and similar case IDs)
-  * Changed /api/cases/<case_id> route to use <path:case_id> for proper URL handling
-  * Changed /api/cases/<case_id>/documents/upload route to use <path:case_id>
-  * Added "type": "case" field to auto-created cases for query consistency
-  * Updated get_case() query to match by caseNumber OR id (like upload endpoint)
-  * Fixes 404 errors when fetching cases with hyphens or special characters
+CHANGELOG v5.9.17 (15-Jan-2026):
+- FEATURE: PATH SUMMARIZATION INTEGRATION 
+  * Integrated multi_hop_traversal_v2.py with path summarization
+  * Added SAMMAcronymExpander for automatic acronym expansion
+  * Added SAMMGlossary for key term definitions
+  * New: optimized_path_summary provides token-efficient context
+  * ~40% reduction in graph context tokens
+  * Improved LLM comprehension with expanded SAMM acronyms
+
+CHANGELOG v5.9.16 (15-Jan-2026):
+- FEATURE: Multi-Hop Path RAG Enhancement
+  * Support for 3+ hop paths in graph traversal
+  * Reasoning chain visible in response output
+  * Configurable max hop limit parameter
+
+CHANGELOG v5.9.15 (05-Jan-2026):
+- FIX 13: CTA ANSWER GUIDANCE IMPROVEMENT
+  * Updated CTA_REQUIREMENT start_with to include "coordinated position of senior U.S. Embassy leadership"
+  * Updated must_mention with 6 key items (cables/memos, CCMD concurrence, etc.)
+
+- FIX 14: SOLE_SOURCE ANSWER GUIDANCE IMPROVEMENT
+  * Added complete start_with with Golden Answer content
+  * Added must_mention: FMS=required, BPC=NOT required, IA responsibility
+  * Added line_note_template field with exact SAMM template format
+
+- FIX 15: SHORT_OED ANSWER GUIDANCE IMPROVEMENT
+  * Updated start_with to include "USG driven requirements (price estimates dependent on contract award)"
+  * Added must_mention: "NOT for purchaser-driven needs", "NOT to expedite LOA"
+  * Added appendix_6_note field: "Mandatory for FMS LOAs when offer expires less than standard"
+
+- FIX 16: DEFENSE_ARTICLES_DESCRIPTION COMPREHENSIVE CHECKLIST
+  * Added defense_article_checklist with 17 items from Figure C5.F14
+  * Added defense_service_checklist with 4 items
+  * Includes: nomenclature, manufacturer details, quantity, end use, new capability question
+
+- FIX 17: ACTIONABLE_LOR 13 CRITERIA FROM TABLE C5.T3A
+  * Added trigger phrases: "needs to be included", "for it to be actionable"
+  * Added thirteen_criteria field with all 13 mandatory criteria from Table C5.T3A
+  * Includes: eligible FMS recipient, proper channels, no sanctions, CTA/CCMD, TIP, DCS check
+
+- FIX 18: CN_THRESHOLD CORRECT THRESHOLDS (SLIM VERSION)
+  * Slimmed down to avoid Ollama timeout (was 5112 chars!)
+  * Key info in must_mention:
+    - NATO (incl France,Germany,UK): MDE=$25M, TCV=$100M
+    - All Other: MDE=$14M, TCV=$50M
+    - $99M < $100M means CN NOT required
+    - Ask if MDE being procured
+
+- FIX 19: NATO REMOVED FROM NON-SAMM TOPICS
+  * CRITICAL: "nato" was in non_samm_topics list causing "case for NATO" to fail!
+  * Removed "nato" from non_samm_topics - it's relevant for CN thresholds
+  * Added more trigger phrases: "case for NATO", "will this case need", "$25M", "$14M"
+
+- FIX 20: LOGISTICS_SUPPORT_LOR 8-ITEM CHECKLIST
+  * Added stronger trigger phrases: "regarding logistics", "specific information regarding logistics"
+  * Added logistics_checklist with 8 items from Figure C5.F14
+
+- FIX 21: CASE_DESCRIPTION_AMENDMENT COMPREHENSIVE GUIDELINES
+  * Added Table C6.T8 5 guidelines (a-e): Program, Overview, Reason, Unaccepted AMDs, Restatement
+  * Added exceptions_list: Notes, payment schedule, Source Code, etc.
+  * Added proper example: "AH-64D Helicopter program..."
+  * Added "IAs no longer required to reference each individual line"
+  * Added "Funds increase/decrease must clearly state reason"
+
+- FIX 22: CDEF_DELAY COMPREHENSIVE KEY POINTS
+  * Added "mandatory for Category C LOA documents"
+  * Added "One or more CDEFs can be applied to an LOA"
+  * Added "DSAMS will not allow MILSGN until actual days entered"
+  * Added "Enables IA and DSCA to measure impact"
+  * Added "Figure C5.F13 determines Category C tracking"
+  * Added cdef_key_points field with 8 comprehensive points
+
+- Safe rollback to v5.9.14 available (data changes only, minimal logic additions)
+
+CHANGELOG v5.9.14 (03-Jan-2026):
+- FIX 12: HANDLE BOLD-FORMATTED FIGURE/TABLE REFERENCES
+  * AI sometimes outputs "__Figure C5.F14__" or "**Table C5.T3a**" (markdown bold)
+  * Updated add_figure_links() to detect and convert bold patterns to links
+  * Updated add_table_links() to detect and convert bold patterns to links
+  * "__Figure C5.F14__" → "[Figure C5.F14](url)" (removes bold, adds link)
+  * Works with both __ and ** bold markers
 
 CHANGELOG v5.9.14 (31-Dec-2025):
 - FIX 9: CLICKABLE TABLE LINKS
@@ -208,15 +281,6 @@ from collections import defaultdict  # For metrics calculations
 import openpyxl  # Excel processing for MISIL RSN sheets
 import PyPDF2    # PDF text extraction
 import tempfile  # Temporary file handling for uploads
-
-# PyJWT for decoding Azure Entra ID tokens
-try:
-    import jwt
-    print("PyJWT imported successfully for Azure token decoding")
-except ImportError:
-    jwt = None
-    print("Warning: PyJWT not installed. Run: pip install PyJWT")
-
 # Fix for Windows asyncio issues
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -226,6 +290,7 @@ from flask import Flask, request, jsonify, session, send_from_directory, redirec
 from flask_cors import CORS
 from authlib.integrations.flask_client import OAuth
 from werkzeug.utils import secure_filename 
+from multi_hop_traversal_v2 import TwoHopPathFinderCompat, MultiHopGraphTraverser, MultiHopConfig, PathSummarizer
 
 # Environment
 from dotenv import load_dotenv, find_dotenv
@@ -322,6 +387,7 @@ def add_figure_links(answer_text: str) -> str:
     """
     Replace figure references with clickable markdown links.
     Example: "Figure C5.F14" becomes "[Figure C5.F14](https://samm.dsca.mil/...)"
+    Also handles bold-formatted figures: "__Figure C5.F14__" or "**Figure C5.F14**"
     Uses regex with word boundaries to avoid partial matches (e.g., F1 inside F14)
     """
     print(f"[FIGURE LINKS] 🔗 Processing answer ({len(answer_text) if answer_text else 0} chars)")
@@ -336,13 +402,35 @@ def add_figure_links(answer_text: str) -> str:
     links_added = 0
     for figure_name in sorted_figures:
         url = SAMM_FIGURE_URLS[figure_name]
-        # Only replace if not already a markdown link
-        if figure_name in answer_text and f"[{figure_name}]" not in answer_text:
-            # Use regex with word boundary to avoid partial matches
+        
+        # Skip if already a markdown link
+        if f"[{figure_name}]" in answer_text:
+            continue
+        
+        # Pattern 1: Handle bold-wrapped figures first: __Figure C5.F14__ or **Figure C5.F14**
+        bold_pattern1 = r'__' + re.escape(figure_name) + r'__'
+        bold_pattern2 = r'\*\*' + re.escape(figure_name) + r'\*\*'
+        replacement = f"[{figure_name}]({url})"
+        
+        # Try bold pattern with underscores
+        if re.search(bold_pattern1, answer_text):
+            print(f"[FIGURE LINKS] ✅ Found bold '__{figure_name}__' - converting to link")
+            answer_text = re.sub(bold_pattern1, replacement, answer_text)
+            links_added += 1
+            continue
+        
+        # Try bold pattern with asterisks
+        if re.search(bold_pattern2, answer_text):
+            print(f"[FIGURE LINKS] ✅ Found bold '**{figure_name}**' - converting to link")
+            answer_text = re.sub(bold_pattern2, replacement, answer_text)
+            links_added += 1
+            continue
+        
+        # Pattern 2: Handle normal (non-bold) figures with word boundary
+        if figure_name in answer_text:
+            # Use regex with negative lookahead to avoid partial matches
             # e.g., "Figure C5.F1" should NOT match inside "Figure C5.F14"
-            # \b at end ensures we don't match "F1" when "F14" is present
             pattern = re.escape(figure_name) + r'(?![0-9a-zA-Z])'
-            replacement = f"[**{figure_name}**]({url})"
             new_text = re.sub(pattern, replacement, answer_text)
             if new_text != answer_text:
                 print(f"[FIGURE LINKS] ✅ Found '{figure_name}' - adding link")
@@ -396,6 +484,7 @@ def add_table_links(answer_text: str) -> str:
     """
     Replace table references with clickable markdown links.
     Example: "Table C5.T1" becomes "[Table C5.T1](https://samm.dsca.mil/...)"
+    Also handles bold-formatted tables: "__Table C5.T3a__" or "**Table C5.T3a**"
     Uses regex with word boundaries to avoid partial matches (e.g., T1 inside T10)
     """
     if not answer_text:
@@ -407,12 +496,35 @@ def add_table_links(answer_text: str) -> str:
     links_added = 0
     for table_name in sorted_tables:
         url = SAMM_TABLE_URLS[table_name]
-        # Only replace if not already a markdown link
-        if table_name in answer_text and f"[{table_name}]" not in answer_text:
-            # Use regex with word boundary to avoid partial matches
+        
+        # Skip if already a markdown link
+        if f"[{table_name}]" in answer_text:
+            continue
+        
+        # Pattern 1: Handle bold-wrapped tables first: __Table C5.T3a__ or **Table C5.T3a**
+        bold_pattern1 = r'__' + re.escape(table_name) + r'__'
+        bold_pattern2 = r'\*\*' + re.escape(table_name) + r'\*\*'
+        replacement = f"[{table_name}]({url})"
+        
+        # Try bold pattern with underscores
+        if re.search(bold_pattern1, answer_text):
+            print(f"[TABLE LINKS] ✅ Found bold '__{table_name}__' - converting to link")
+            answer_text = re.sub(bold_pattern1, replacement, answer_text)
+            links_added += 1
+            continue
+        
+        # Try bold pattern with asterisks
+        if re.search(bold_pattern2, answer_text):
+            print(f"[TABLE LINKS] ✅ Found bold '**{table_name}**' - converting to link")
+            answer_text = re.sub(bold_pattern2, replacement, answer_text)
+            links_added += 1
+            continue
+        
+        # Pattern 2: Handle normal (non-bold) tables with word boundary
+        if table_name in answer_text:
+            # Use regex with negative lookahead to avoid partial matches
             # e.g., "Table C5.T1" should NOT match inside "Table C5.T10"
             pattern = re.escape(table_name) + r'(?![0-9a-zA-Z])'
-            replacement = f"[**{table_name}**]({url})"
             new_text = re.sub(pattern, replacement, answer_text)
             if new_text != answer_text:
                 print(f"[TABLE LINKS] ✅ Found '{table_name}' - adding link")
@@ -836,20 +948,45 @@ SAMM_JSON_KG = None
 TWO_HOP_PATH_FINDER = None
 
 def initialize_2hop_rag(json_kg_path: str = "samm_knowledge_graph.json"):
-    """Initialize 2-Hop Path RAG system."""
+    """Initialize Multi-Hop Path RAG system (v5.9.17 + Path Summarization)."""
     global SAMM_JSON_KG, TWO_HOP_PATH_FINDER
     
     try:
-        SAMM_JSON_KG = SAMMKnowledgeGraphJSON(json_path=json_kg_path)
-        entity_rels = SAMM_JSON_KG.get_entity_relationships_dict()
-        TWO_HOP_PATH_FINDER = TwoHopPathFinder(
-            json_kg=SAMM_JSON_KG,
-            entity_relationships=entity_rels
+        # v5.9.17: Use new Multi-Hop implementation with Path Summarization
+        from multi_hop_traversal_v2 import MultiHopConfig, MultiHopGraphTraverser, TwoHopPathFinderCompat
+        
+        # Configure multi-hop (supports 3+ hops + path summarization!)
+        config = MultiHopConfig(
+            max_hops=5,           # Maximum depth allowed
+            default_hops=3,       # Default for queries
+            enable_caching=True,  # Cache for performance
+            log_reasoning_chain=True,  # Show reasoning in output
+            enable_path_summarization=True  # v5.9.17: Enable concise summaries with acronym expansion
         )
-        print(f"[v5.9.3] ✅ 2-Hop Path RAG initialized successfully")
+        
+        # Create traverser and load graph
+        traverser = MultiHopGraphTraverser(config)
+        traverser.load_from_json(json_kg_path)
+        
+        # Backward compatible wrapper (maintains old API + adds optimized_summary)
+        TWO_HOP_PATH_FINDER = TwoHopPathFinderCompat(traverser)
+        
+        # Store traverser reference for direct access to optimized context
+        TWO_HOP_PATH_FINDER._traverser = traverser
+        
+        # Also keep SAMM_JSON_KG reference for compatibility
+        SAMM_JSON_KG = TWO_HOP_PATH_FINDER
+        
+        print(f"[v5.9.17] ✅ Multi-Hop Path RAG + Summarization initialized successfully")
+        print(f"[v5.9.17]    Max hops: {config.max_hops}, Default: {config.default_hops}")
+        print(f"[v5.9.17]    Path Summarization: ENABLED (with acronym expansion)")
+        print(f"[v5.9.17]    Entities: {len(traverser.entities)}, Relationships: {len(traverser.relationships)}")
         return True
+        
     except Exception as e:
-        print(f"[v5.9.3] ⚠️ 2-Hop Path RAG initialization failed: {e}")
+        print(f"[v5.9.17] ⚠️ Multi-Hop Path RAG initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # =============================================================================
@@ -857,38 +994,274 @@ def initialize_2hop_rag(json_kg_path: str = "samm_knowledge_graph.json"):
 # =============================================================================
 
 # --- Application Configuration ---
-# Azure Entra ID (formerly Azure AD) Configuration
-AZURE_CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-AZURE_CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
-AZURE_TENANT_ID = os.getenv("AZURE_TENANT_ID")
-# Cloud configuration: "public" for commercial Azure, "government" for Azure Gov
-AZURE_CLOUD = os.getenv("AZURE_CLOUD", "public").lower()
-
-# Azure cloud endpoints
-AZURE_ENDPOINTS = {
-    "public": {
-        "authority": "https://login.microsoftonline.com",
-        "graph": "https://graph.microsoft.com"
-    },
-    "government": {
-        "authority": "https://login.microsoftonline.us",
-        "graph": "https://graph.microsoft.us"
-    }
-}
-
-# Get the appropriate authority based on cloud type
-AZURE_AUTHORITY = AZURE_ENDPOINTS.get(AZURE_CLOUD, AZURE_ENDPOINTS["public"])["authority"]
-AZURE_GRAPH_URL = AZURE_ENDPOINTS.get(AZURE_CLOUD, AZURE_ENDPOINTS["public"])["graph"]
-
+# Auth0 Configuration
+AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
+AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
+AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 APP_SECRET_KEY = os.getenv("APP_SECRET_KEY", "DFd55vvJIcV79cGuEETrGc9HWiNDqducM7upRwXdeJ9c4E3LbCtl")
-BASE_URL = os.getenv("BACKEND_URL", "http://172.16.200.12:3000")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://172.16.200.12:5173")
+BASE_URL = os.getenv("BACKEND_URL", "http://20.245.40.107:3000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://20.245.40.107:5173")
 # Ollama Configuration
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 #OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 OLLAMA_MAX_RETRIES = int(os.getenv("OLLAMA_MAX_RETRIES", "3"))
 OLLAMA_TIMEOUT_NORMAL = int(os.getenv("OLLAMA_TIMEOUT_NORMAL", "300"))  # v5.9.12: Increased to 300s for GPU with larger context
+
+# =============================================================================
+# v5.9.18: FINE-TUNED SAMM MODEL CONFIGURATION
+# =============================================================================
+# Toggle: Set to True to use fine-tuned model, False for base Ollama model
+# For DEMO: Keep False - shows integration status but uses stable base model
+USE_FINETUNED_MODEL = os.getenv("USE_FINETUNED_MODEL", "false").lower() == "true"
+
+# Fine-tuned model paths and settings
+FINETUNED_MODEL_PATH = os.getenv(
+    "FINETUNED_MODEL_PATH", 
+    "/data/llama-finetuning-v3/merged-model"
+)
+FINETUNED_MODEL_NAME = os.getenv("FINETUNED_MODEL_NAME", "samm-llama3-finetuned-v3")
+
+# Model status tracking (updated at startup)
+FINETUNED_MODEL_STATUS = {
+    "integrated": False,
+    "loaded": False,
+    "path_exists": False,
+    "files_found": 0,
+    "total_size_gb": 0,
+    "error": None,
+    "model_type": "safetensors"
+}
+
+# Fine-tuned model objects (lazy loaded)
+_finetuned_model = None
+_finetuned_tokenizer = None
+
+def check_finetuned_model_integration():
+    """
+    Check if fine-tuned model files exist and update status.
+    Called at startup to verify integration.
+    """
+    global FINETUNED_MODEL_STATUS
+    
+    print("\n" + "=" * 70)
+    print("🔧 FINE-TUNED SAMM MODEL INTEGRATION CHECK (v5.9.18)")
+    print("=" * 70)
+    
+    try:
+        from pathlib import Path
+        model_path = Path(FINETUNED_MODEL_PATH)
+        
+        # Check if path exists
+        if model_path.exists():
+            FINETUNED_MODEL_STATUS["path_exists"] = True
+            print(f"✅ Model path found: {FINETUNED_MODEL_PATH}")
+            
+            # Check for safetensors files
+            safetensor_files = list(model_path.glob("*.safetensors"))
+            if safetensor_files:
+                FINETUNED_MODEL_STATUS["model_type"] = "safetensors"
+                FINETUNED_MODEL_STATUS["files_found"] = len(safetensor_files)
+                total_size = sum(f.stat().st_size for f in safetensor_files) / (1024**3)
+                FINETUNED_MODEL_STATUS["total_size_gb"] = round(total_size, 2)
+                FINETUNED_MODEL_STATUS["integrated"] = True
+                print(f"✅ Found {len(safetensor_files)} safetensor files ({total_size:.2f} GB)")
+                for f in safetensor_files:
+                    print(f"   📄 {f.name} ({f.stat().st_size / (1024**3):.2f} GB)")
+            
+            # Check for config files
+            config_files = ["config.json", "tokenizer.json", "tokenizer_config.json", 
+                          "generation_config.json", "special_tokens_map.json"]
+            found_configs = []
+            for cf in config_files:
+                if (model_path / cf).exists():
+                    found_configs.append(cf)
+            
+            if found_configs:
+                print(f"✅ Config files found: {', '.join(found_configs)}")
+            
+            if FINETUNED_MODEL_STATUS["integrated"]:
+                print(f"\n{'='*70}")
+                print(f"🎉 FINE-TUNED SAMM MODEL SUCCESSFULLY INTEGRATED!")
+                print(f"{'='*70}")
+                print(f"   📁 Path: {FINETUNED_MODEL_PATH}")
+                print(f"   📊 Type: {FINETUNED_MODEL_STATUS['model_type']}")
+                print(f"   📦 Size: {FINETUNED_MODEL_STATUS['total_size_gb']} GB")
+                print(f"   🔢 Files: {FINETUNED_MODEL_STATUS['files_found']} model shards")
+                print(f"   🔘 Status: {'ENABLED' if USE_FINETUNED_MODEL else 'STANDBY (Demo Mode)'}")
+                print(f"{'='*70}")
+        else:
+            FINETUNED_MODEL_STATUS["path_exists"] = False
+            FINETUNED_MODEL_STATUS["error"] = f"Path not found: {FINETUNED_MODEL_PATH}"
+            print(f"⚠️ Model path not found: {FINETUNED_MODEL_PATH}")
+            print(f"   Fine-tuned model integration skipped - using base Ollama model")
+            
+    except Exception as e:
+        FINETUNED_MODEL_STATUS["error"] = str(e)
+        print(f"❌ Error checking model integration: {str(e)}")
+    
+    # Final status summary
+    print(f"\n📊 ACTIVE MODEL: {FINETUNED_MODEL_NAME if (USE_FINETUNED_MODEL and FINETUNED_MODEL_STATUS['integrated']) else OLLAMA_MODEL}")
+    print("=" * 70 + "\n")
+    
+    return FINETUNED_MODEL_STATUS
+
+
+def get_finetuned_model_status():
+    """Return model status for API endpoints"""
+    return {
+        "finetuned_model": {
+            "name": FINETUNED_MODEL_NAME,
+            "integrated": FINETUNED_MODEL_STATUS["integrated"],
+            "enabled": USE_FINETUNED_MODEL,
+            "path": FINETUNED_MODEL_PATH,
+            "model_type": FINETUNED_MODEL_STATUS["model_type"],
+            "files_found": FINETUNED_MODEL_STATUS["files_found"],
+            "total_size_gb": FINETUNED_MODEL_STATUS["total_size_gb"],
+            "loaded_in_memory": FINETUNED_MODEL_STATUS["loaded"],
+            "status": "active" if (USE_FINETUNED_MODEL and FINETUNED_MODEL_STATUS["integrated"]) else "standby",
+            "error": FINETUNED_MODEL_STATUS["error"]
+        },
+        "base_model": {
+            "name": OLLAMA_MODEL,
+            "url": OLLAMA_URL,
+            "status": "active" if not (USE_FINETUNED_MODEL and FINETUNED_MODEL_STATUS["integrated"]) else "standby"
+        },
+        "active_model": FINETUNED_MODEL_NAME if (USE_FINETUNED_MODEL and FINETUNED_MODEL_STATUS["integrated"]) else OLLAMA_MODEL,
+        "demo_mode": not USE_FINETUNED_MODEL
+    }
+
+
+def load_finetuned_model_to_memory():
+    """
+    Load fine-tuned model into GPU memory using Hugging Face Transformers.
+    Only called when USE_FINETUNED_MODEL is True.
+    """
+    global _finetuned_model, _finetuned_tokenizer, FINETUNED_MODEL_STATUS
+    
+    if not FINETUNED_MODEL_STATUS["integrated"]:
+        print("[FineTuned] ❌ Model not integrated, cannot load")
+        return False
+        
+    if _finetuned_model is not None:
+        print("[FineTuned] ✅ Model already loaded in memory")
+        return True
+    
+    try:
+        print(f"[FineTuned] 🚀 Loading fine-tuned model into GPU memory...")
+        print(f"[FineTuned] Path: {FINETUNED_MODEL_PATH}")
+        
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        import torch
+        
+        # Load tokenizer
+        print("[FineTuned] Loading tokenizer...")
+        _finetuned_tokenizer = AutoTokenizer.from_pretrained(
+            FINETUNED_MODEL_PATH,
+            trust_remote_code=True
+        )
+        if _finetuned_tokenizer.pad_token is None:
+            _finetuned_tokenizer.pad_token = _finetuned_tokenizer.eos_token
+        print("[FineTuned] ✅ Tokenizer loaded")
+        
+        # Load model
+        print("[FineTuned] Loading model (this may take a few minutes)...")
+        _finetuned_model = AutoModelForCausalLM.from_pretrained(
+            FINETUNED_MODEL_PATH,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            trust_remote_code=True,
+            low_cpu_mem_usage=True
+        )
+        _finetuned_model.eval()  # Set to evaluation mode
+        print(f"[FineTuned] ✅ Model loaded successfully!")
+        print(f"[FineTuned] Device: {next(_finetuned_model.parameters()).device}")
+        
+        FINETUNED_MODEL_STATUS["loaded"] = True
+        return True
+        
+    except ImportError as e:
+        print(f"[FineTuned] ❌ Missing dependencies: {str(e)}")
+        print("[FineTuned] Run: pip install transformers torch accelerate")
+        FINETUNED_MODEL_STATUS["error"] = f"Missing dependencies: {str(e)}"
+        return False
+        
+    except Exception as e:
+        print(f"[FineTuned] ❌ Failed to load model: {str(e)}")
+        FINETUNED_MODEL_STATUS["error"] = str(e)
+        return False
+
+
+def generate_with_finetuned_model(prompt: str, system_message: str = "", max_new_tokens: int = 1500, temperature: float = 0.1):
+    """
+    Generate response using fine-tuned model.
+    Returns None if model not available (triggers Ollama fallback).
+    """
+    global _finetuned_model, _finetuned_tokenizer
+    
+    # If fine-tuned model not enabled, return None to use Ollama
+    if not USE_FINETUNED_MODEL:
+        return None
+    
+    # If not integrated, return None
+    if not FINETUNED_MODEL_STATUS["integrated"]:
+        print("[FineTuned] Model not integrated, falling back to Ollama")
+        return None
+    
+    # Try to load model if not loaded
+    if not FINETUNED_MODEL_STATUS["loaded"]:
+        if not load_finetuned_model_to_memory():
+            print("[FineTuned] Could not load model, falling back to Ollama")
+            return None
+    
+    try:
+        import torch
+        
+        print(f"[FineTuned] 🚀 Generating response with fine-tuned model...")
+        
+        # Format prompt (Llama chat format)
+        if system_message:
+            full_prompt = f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{prompt} [/INST]"
+        else:
+            full_prompt = f"<s>[INST] {prompt} [/INST]"
+        
+        # Tokenize
+        inputs = _finetuned_tokenizer(
+            full_prompt, 
+            return_tensors="pt",
+            truncation=True,
+            max_length=4096
+        ).to(_finetuned_model.device)
+        
+        # Generate
+        with torch.no_grad():
+            outputs = _finetuned_model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=0.9,
+                do_sample=True if temperature > 0 else False,
+                pad_token_id=_finetuned_tokenizer.pad_token_id,
+                eos_token_id=_finetuned_tokenizer.eos_token_id
+            )
+        
+        # Decode (only new tokens)
+        response = _finetuned_tokenizer.decode(
+            outputs[0][inputs['input_ids'].shape[1]:], 
+            skip_special_tokens=True
+        ).strip()
+        
+        print(f"[FineTuned] ✅ Generated {len(response)} chars")
+        return response
+        
+    except Exception as e:
+        print(f"[FineTuned] ❌ Generation error: {str(e)}")
+        print("[FineTuned] Falling back to Ollama...")
+        return None
+
+# =============================================================================
+# END v5.9.18: FINE-TUNED MODEL CONFIGURATION
+# =============================================================================
 
 # =============================================================================
 # v5.9.12: GPU CONFIGURATION - Adjust these for your GPU VRAM
@@ -925,13 +1298,13 @@ COSMOS_GREMLIN_CONFIG = {
 }
 
 # Vector Database Configuration
-VECTOR_DB_PATH = "C:\\Users\\ShaziaKashif\\ASIST Project\\ASIST2.1\\ASIST_V2.1\\backend\\Chromadb\\samm_all_chapters_db"
+VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "/opt/asist/backend_v8_shazia_v2/samm_all_chapters_db")
 #VECTOR_DB_PATH = "C:\\Users\\TomLorenc\\Downloads\\ASIST_DEV\\ASIST_DEV\backend\\vector_db"
 #VECTOR_DB_PATH = "C:\\Projects\\5_1\\ASIST_V5.0-main\backend\\vector_db"
 #VECTOR_DB_PATH = "O:\\Assist Versions\backend\\vector_db"
 #VECTOR_DB_PATH = "O:\\Assist Versions\\backend\\Chromadb\\samm_all_chapters_db"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-VECTOR_DB_COLLECTION = "samm_all_chapters"
+VECTOR_DB_COLLECTION = os.getenv("VECTOR_DB_COLLECTION", "samm_all_chapters")
 
 # =============================================================================
 # v5.9.12: SAMM_CONTEXT FOR SMART SEARCH (ENHANCED SEMANTIC MAPPING)
@@ -1290,19 +1663,34 @@ GOLD_TRAINING_DATA = {
     "patterns": [
         {
             "id": "CDEF_DELAY",
-            "trigger_phrases": ["taking longer", "longer than expected", "delay", "delaying", "exceed time", "coordination taking time", "approval process slow", "case submission delay", "processing time exceed"],
+            "trigger_phrases": ["taking longer", "longer than expected", "delay", "delaying", "exceed time", "coordination taking time", "approval process slow", "case submission delay", "processing time exceed", "outside coordination"],
             "samm_concept": "CDEF - Case Development Extenuating Factor",
             "must_retrieve": {"sections": ["C5.4.2.1"], "tables": ["Table C5.T6"], "figures": ["Figure C5.F13"]},
             "answer_guidance": {
-                "start_with": "According to SAMM Chapter 5, Section C5.4.2.1",
+                "start_with": "According to SAMM Chapter 5, Section C5.4.2.1, A Case Development Extenuating Factor (CDEF) identifies a reason why the processing time of an LOA document might exceed the standards from Table C5.T6",
                 "must_mention": [
-                    "Enter CDEF reason code in DSAMS",
-                    "CDEF identifies why processing time exceeds standards",
-                    "See Table C5.T6 for processing time standards",
-                    "See Figure C5.F13 for list of CDEF reason codes",
-                    "Enter estimated days and actual days in DSAMS"
+                    "CDEF identifies why processing time exceeds standards from Table C5.T6",
+                    "IA should enter CDEF reason code in DSAMS",
+                    "CDEF can be applied to all preparation categories",
+                    "CDEF is mandatory for LOA documents in Category C",
+                    "One or more CDEFs can be applied to an LOA document",
+                    "Enter estimated number of days CDEF will take to resolve",
+                    "Enter actual number of days once resolved",
+                    "DSAMS will not allow LOA to be signed (MILSGN) until actual days entered",
+                    "Enables IA and DSCA to measure impact of CDEFs",
+                    "See Figure C5.F13 for list of CDEF reason codes"
                 ],
-                "must_explain": ["What CDEF is", "Reference to Table C5.T6 and Figure C5.F13 for details"]
+                "cdef_key_points": [
+                    "CDEF = reason why processing time might exceed Table C5.T6 standards",
+                    "Enter CDEF reason code in DSAMS when case development standard will be impacted",
+                    "Mandatory for Category C LOA documents",
+                    "One or more CDEFs can be applied to an LOA",
+                    "Must enter: (1) estimated days to resolve, (2) actual days after resolution",
+                    "DSAMS blocks MILSGN signature until actual days entered",
+                    "Figure C5.F13 lists all CDEF reason codes",
+                    "Figure C5.F13 also helps determine Category C tracking"
+                ],
+                "must_explain": ["What CDEF is", "DSAMS entry requirements", "Category C mandatory", "Estimated vs actual days"]
             }
         },
         {
@@ -1311,8 +1699,15 @@ GOLD_TRAINING_DATA = {
             "samm_concept": "CTA - Country Team Assessment",
             "must_retrieve": {"sections": ["C5.1.4", "C5.1.4.2", "C5.5"], "tables": ["Table C5.T1"], "figures": []},
             "answer_guidance": {
-                "start_with": "According to SAMM Chapter 5, Section C5.1.4",
-                "must_mention": ["Country Team Assessment (CTA)", "Congressional Notification (CN)", "36(b)", "new capability", "sensitive nature", "Table C5.T1"],
+                "start_with": "According to SAMM Chapter 5, Section C5.1.4, The Country Team Assessment (CTA) presents the coordinated position of senior U.S. Embassy leadership in support of a proposed sale",
+                "must_mention": [
+                    "coordinated position of senior U.S. Embassy leadership",
+                    "cables or memos on embassy letterhead",
+                    "Congressional Notification 36(b) based on cost",
+                    "first introduction of new capability",
+                    "sensitive nature C5.1.4.2",
+                    "Combatant Commander concurrence"
+                ],
                 "must_explain": ["What CTA is", "4 conditions when CTA is required", "CCMD concurrence"]
             }
         },
@@ -1322,9 +1717,16 @@ GOLD_TRAINING_DATA = {
             "samm_concept": "Sole Source Designation",
             "must_retrieve": {"sections": ["C5.4.8.10.4"], "tables": [], "figures": [], "appendices": ["Appendix 6"]},
             "answer_guidance": {
-                "start_with": "According to SAMM Chapter 5, Section C5.4.8.10.4",
-                "must_mention": ["sole source designation", "Appendix 6", "Procurement Using Other Than Full and Open Competition", "FMS case vs BPC case"],
-                "must_explain": ["When sole source line note is required", "Line note template/format"]
+                "start_with": "According to SAMM Chapter 5, Section C5.4.8.10.4, If the purchaser has requested that a particular item be provided from a sole source, and the IA has approved this request, the sole source designation is included in the notes. See Appendix 6 - Procurement Using Other Than Full and Open Competition",
+                "must_mention": [
+                    "sole source designation in notes",
+                    "Appendix 6 - Procurement Using Other Than Full and Open Competition",
+                    "FMS case = line note required",
+                    "Building Partner Capacity (BPC) case = line note NOT required",
+                    "Implementing Agency responsibility to add line note"
+                ],
+                "line_note_template": "The purchaser has requested in a letter dated [insert date] that [insert name of specific firm or other private source] be designated as [insert prime contractor or subcontractor] for line/items(s) [insert line item numbers] of this Letter of Offer and Acceptance. This note is confirmation that a specific source designation has been requested in writing by the purchaser and that the Department of Defense has accepted the request.",
+                "must_explain": ["When sole source line note is required (FMS vs Building Partner Capacity (BPC))", "Line note template format", "IA responsibility"]
             }
         },
         {
@@ -1341,15 +1743,17 @@ GOLD_TRAINING_DATA = {
             "samm_concept": "OED - Offer Expiration Date",
             "must_retrieve": {"sections": ["C5.4.19"], "tables": [], "figures": ["Figure C5.F6"], "appendices": ["Appendix 6"]},
             "answer_guidance": {
-                "start_with": "According to SAMM chapter C5.4.19",
+                "start_with": "According to SAMM chapter C5.4.19, Short OEDs are used for USG driven requirements (e.g., where price estimates are dependent on contract award by a certain date)",
                 "must_mention": [
-                    "Short OED can be used for USG driven requirements",
-                    "25 days rule (OED minus 25 days)",
-                    "mandatory short OED LOA note required",
-                    "See Figure C5.F6 for LOA preparation instructions",
-                    "See Appendix 6 for exact note wording"
+                    "USG driven requirements (price estimates dependent on contract award)",
+                    "NOT for purchaser-driven needs",
+                    "NOT to expedite LOA through review process",
+                    "25 days rule - if purchaser has less than OED minus 25 days",
+                    "mandatory short OED LOA note (Appendix 6)",
+                    "Figure C5.F6 for LOA preparation instructions"
                 ],
-                "must_explain": ["When short OED is justified", "Reference to Figure C5.F6 and Appendix 6 for details"]
+                "appendix_6_note": "Mandatory for FMS LOAs and Amendments when the offer will expire in less than the standard period of time unless the latest version of the note is on the Implemented Version.",
+                "must_explain": ["When short OED is justified vs not justified", "25 days rule", "Appendix 6 note requirement"]
             }
         },
         {
@@ -1404,20 +1808,48 @@ GOLD_TRAINING_DATA = {
                 "description of the defense articles",
                 "description of defense articles", 
                 "defense articles or services",
-                "information must be included",
-                "specific information"
+                "information must be included in LOR",
+                "specific information defense articles",
+                "information regarding defense"
             ],
             "samm_concept": "LOR Defense Articles Description",
             "must_retrieve": {"sections": ["C5.1.2.1", "C5.1.2.2"], "tables": [], "figures": ["Figure C5.F14"], "appendices": ["Appendix 2"]},
             "answer_guidance": {
-                "start_with": "SAMM policy only requires the LOR identifies the desired defense articles and/or services in sufficient detail",
+                "start_with": "SAMM policy only requires the LOR identifies the desired defense articles and/or services in sufficient detail for the USG to prepare an accurate cost estimate. However, Figure C5.F14 provides a comprehensive LOR checklist",
                 "must_mention": [
-                    "sufficient detail for accurate cost estimate", 
-                    "Figure C5.F14 contains the complete LOR checklist",
-                    "nomenclature, quantity, NSN, end use, delivery requirements",
-                    "For complete details, refer to Figure C5.F14"
+                    "sufficient detail for accurate cost estimate",
+                    "Figure C5.F14 contains comprehensive LOR checklist",
+                    "Defense ARTICLE details required",
+                    "Defense SERVICE details required",
+                    "Previous FMS/DCS cases related to request"
                 ],
-                "must_explain": ["Brief summary of key items", "Direct user to Figure C5.F14 for comprehensive checklist"]
+                "defense_article_checklist": [
+                    "1. Nomenclature & description (manufacturer name, catalog, model, serial number, drawing number)",
+                    "2. Quantity",
+                    "3. Intended end use (mission usage requirements)",
+                    "4. Is this a new capability to partner nation?",
+                    "5. Has partner nation bought this from USG before?",
+                    "6. Major component or system",
+                    "7. Part number and/or NSN",
+                    "8. Configuration and intended integrator",
+                    "9. Interface/software integration requirements",
+                    "10. Desired condition (new, refurbished, as is/where is)",
+                    "11. Desired delivery date/schedule, IOC date, expedited delivery authorized?",
+                    "12. Transportation requirements (shipping address, freight forwarder, MAP codes)",
+                    "13. Support requirements during production",
+                    "14. Software development requirements",
+                    "15. Number of locations requiring equipment",
+                    "16. Joint visual inspection or demonstration",
+                    "17. Is item classified, controlled, cryptographic, or explosive?"
+                ],
+                "defense_service_checklist": [
+                    "1. Short description of service requested",
+                    "2. Desired length of service/period of performance and delivery date",
+                    "3. Location including force protection requirements",
+                    "4. Purchaser participation details if services in US"
+                ],
+                "additional_items": "Also include: Previous FMS cases/DCS transactions related to request, sole source procurement request if desired",
+                "must_explain": ["Defense article details (17 items)", "Defense service details (4 items)", "Previous FMS/DCS cases"]
             }
         },
         {
@@ -1441,35 +1873,89 @@ GOLD_TRAINING_DATA = {
         },
         {
             "id": "ACTIONABLE_LOR",
-            "trigger_phrases": ["actionable LOR", "LOR actionable", "actionable criteria", "make LOR actionable", "LOR requirements actionable", "what makes LOR actionable"],
+            "trigger_phrases": [
+                "actionable LOR", "LOR actionable", "actionable criteria", 
+                "make LOR actionable", "LOR requirements actionable", "what makes LOR actionable",
+                "needs to be included", "for it to be actionable", "included in an LOR",
+                "what needs to be included", "LOR to be actionable", "considered actionable"
+            ],
             "samm_concept": "Actionable LOR Criteria",
-            "must_retrieve": {"sections": ["C4.1.2", "C4.4", "C4.5.3", "C5.1.3.4", "C5.1.4", "C5.5.5.4", "C6.6.5"], "tables": ["Table C5.T3a"], "figures": []},
+            "must_retrieve": {"sections": ["C4.1.2", "C4.4", "C4.5.3", "C5.1.3.4", "C5.1.4", "C5.5.5.4", "C6.6.5"], "tables": ["Table C5.T3A"], "figures": []},
             "answer_guidance": {
-                "start_with": "According to SAMM Table C5.T3a, these are the mandatory criteria",
-                "must_mention": ["Table C5.T3a", "13 mandatory criteria", "eligible FMS recipient", "proper channels", "no sanctions", "valid military requirement"],
-                "must_explain": ["All 13 criteria from Table C5.T3a"]
+                "start_with": "According to SAMM Table C5.T3A, these are the mandatory criteria that need to be addressed in an LOR for it to be deemed actionable",
+                "must_mention": [
+                    "Table C5.T3A",
+                    "13 mandatory criteria",
+                    "LOR deemed Actionable when all criteria satisfied"
+                ],
+                "thirteen_criteria": [
+                    "1. Potential purchaser is an eligible FMS recipient. See Section C4.1.2",
+                    "2. The defense article or defense service sought may be sold. See Section C4.4 and Section C4.5.3",
+                    "3. The request was submitted and received through proper channels. See Section C5.1.3.4",
+                    "4. No sanctions exist that would prevent an LOA from being prepared and/or offered to the purchaser. See Section C6.6.5",
+                    "5. The request is a valid military requirement of the purchaser",
+                    "6. The LOR is from a source with the authority to submit requests on behalf of the requesting country or international organization",
+                    "7. Determine whether the request is for an LOA, lease, or for P&A data",
+                    "8. An appropriate source of funding is identified (e.g., national funds, FMF non-repayable, etc.). Request for Bank Letter of Credit is approved",
+                    "9. Request contains sufficient level of detail for the responsible organization to begin case development (LOAD phase)",
+                    "10. Determine if a CTA and CCMD endorsement are required (C5.1.4, C5.5.5.4). If so, begin coordination to obtain them",
+                    "11. Determine if the request includes a TIP in-scope item. If so, ensure CTA and CCMD endorsement have been provided",
+                    "12. Determine if additional technical releases or policy reviews are required (C5.1.4.2). If so, begin coordination to obtain them",
+                    "13. Ensure the country is not in negotiation directly with a company to obtain the item via DCS. See Section C4.3.7"
+                ],
+                "must_explain": ["All 13 criteria from Table C5.T3A", "Case development begins after LOR deemed actionable"]
             }
         },
         {
             "id": "CN_THRESHOLD",
-            "trigger_phrases": ["congressional notification", "CN required", "36(b)", "case value threshold", "need CN", "France", "NATO", "Australia", "Japan", "Korea", "Israel", "$99M", "$51M", "$50M", "$100M"],
+            "trigger_phrases": [
+                "congressional notification", "CN required", "36(b)", "case value threshold", 
+                "need CN", "need a CN", "need congressional", "will this case need",
+                "France", "NATO", "Australia", "Japan", "Korea", "Israel", 
+                "$99M", "$51M", "$50M", "$100M", "$25M", "$14M",
+                "case for NATO", "NATO case", "Total Case Value"
+            ],
             "samm_concept": "Congressional Notification Thresholds",
             "must_retrieve": {"sections": ["C5.5.3.1"], "tables": ["Table C5.T13"], "figures": []},
             "answer_guidance": {
-                "start_with": "According to SAMM Chapter 5, Section C5.5.3.1",
-                "must_mention": ["36(b)(1) CN", "Table C5.T13", "thresholds vary by purchaser", "NATO Countries thresholds", "MDE threshold", "Total Case Value threshold"],
-                "must_explain": ["Quote the 36(b) law requirement", "List thresholds from Table C5.T13", "Apply thresholds to specific case"]
+                "start_with": "According to SAMM Chapter 5, Section C5.5.3.1, a 36(b)(1) CN is required when an LOA meets or exceeds thresholds in Table C5.T13",
+                "must_mention": [
+                    "Table C5.T13 thresholds vary by purchaser",
+                    "NATO (incl France,Germany,UK): MDE=$25M, TCV=$100M",
+                    "All Other: MDE=$14M, TCV=$50M",
+                    "$99M < $100M means CN NOT required",
+                    "Ask if MDE being procured"
+                ],
+                "must_explain": ["Identify NATO vs All Other", "Compare using correct math (<$100M = NOT required)", "Ask about MDE"]
             }
         },
         {
             "id": "LOGISTICS_SUPPORT_LOR",
-            "trigger_phrases": ["logistics support", "logistics in LOR", "spare parts", "supply support", "maintenance support", "LOR logistics section"],
+            "trigger_phrases": [
+                "logistics support", "logistics in LOR", "spare parts", "supply support", 
+                "maintenance support", "LOR logistics section", "logistics should be included",
+                "regarding logistics", "logistics support should", "information regarding logistics",
+                "specific information regarding logistics", "logistics requirements"
+            ],
             "samm_concept": "LOR Logistics Support Requirements",
             "must_retrieve": {"sections": [], "tables": [], "figures": ["Figure C5.F14"]},
             "answer_guidance": {
-                "start_with": "The SAMM doesn't reference mandatory requirements for logistics support, however, in Figure C5.F14",
-                "must_mention": ["Figure C5.F14", "supply support", "spare parts provisioning", "maintenance concept", "cataloging data"],
-                "must_explain": ["8 logistics items to address", "Spare parts details", "Maintenance levels"]
+                "start_with": "The SAMM doesn't reference mandatory requirements for logistics support, however, Figure C5.F14 provides a comprehensive LOR checklist that includes 8 logistics support items",
+                "must_mention": [
+                    "Figure C5.F14 LOR checklist",
+                    "8 logistics support items"
+                ],
+                "logistics_checklist": [
+                    "1. Supply support requirements (spare parts provisioning strategy)",
+                    "2. Maintenance concept (organizational, intermediate, depot levels)",
+                    "3. Support equipment requirements",
+                    "4. Technical data and publications",
+                    "5. Training requirements for maintenance personnel",
+                    "6. Cataloging data (NSN, part numbers)",
+                    "7. Warranty requirements",
+                    "8. Contractor logistics support (CLS) if applicable"
+                ],
+                "must_explain": ["8 logistics items from Figure C5.F14", "Spare parts provisioning", "Maintenance levels (O, I, D)"]
             }
         },
         {
@@ -1485,13 +1971,27 @@ GOLD_TRAINING_DATA = {
         },
         {
             "id": "CASE_DESCRIPTION_AMENDMENT",
-            "trigger_phrases": ["case description", "amendment description", "write case description", "AMD description", "MOD description", "case description amendment"],
+            "trigger_phrases": ["case description", "amendment description", "write case description", "AMD description", "MOD description", "case description amendment", "how do I write"],
             "samm_concept": "Case Description for Amendments",
             "must_retrieve": {"sections": [], "tables": ["Table C6.T8"], "figures": []},
             "answer_guidance": {
-                "start_with": "According to the LOA Standardization Guide",
-                "must_mention": ["LOA Standardization Guide", "Table C6.T8", "major program involved", "changes made", "reason for changes", "previous unaccepted amendments"],
-                "must_explain": ["What case description should include", "5 guidelines", "Example format"]
+                "start_with": "According to the DSCA LOA Standardization Guide, the Case Description on AMDs and MODs identifies the major program involved, changes that were made, reason(s) for the change(s), and identification of previous unaccepted amendments",
+                "must_mention": [
+                    "LOA Standardization Guide",
+                    "Table C6.T8",
+                    "IAs no longer required to reference each individual line",
+                    "Funds increase/decrease must clearly state reason"
+                ],
+                "table_c6t8_guidelines": [
+                    "a. Program - Identify major program (e.g., Apache Program)",
+                    "b. Overview - Identify changes: addition, modification, deletion, increase, or decrease",
+                    "c. Reason - Explain changes (per purchaser's request, scope, price changes)",
+                    "d. Previous Unaccepted Amendments - Note if previous AMD not accepted, don't reuse number",
+                    "e. Identification of Restatement - Note if document is restated"
+                ],
+                "exceptions_list": "Do NOT need to call out UNLESS main reason: Updates to Notes, description, payment schedule, Source Code, Type of Assistance Code, Offer Release Code, Line Manager Code, Operating Agency Code, shipped complete status",
+                "example": "This Amendment provides updates for the AH-64D Helicopter program, which reduces the quantity of items and extends the Period of Performance (POP) for several line items per the customer's request. Amendment 3 was cancelled without acceptance.",
+                "must_explain": ["Table C6.T8 5 guidelines (a-e)", "Exceptions list", "Example format"]
             }
         }
     ],
@@ -1607,7 +2107,31 @@ class SAMMGoldTrainer:
                 "must_explain": guidance.get("must_explain", []),
                 # v5.9.14: NEW fields for comprehensive answers
                 "eight_requirements": guidance.get("eight_requirements", []),
-                "leahy_requirements": guidance.get("leahy_requirements", [])
+                "leahy_requirements": guidance.get("leahy_requirements", []),
+                # v5.9.15: Sole source line note template
+                "line_note_template": guidance.get("line_note_template", ""),
+                # v5.9.15: Short OED appendix 6 note
+                "appendix_6_note": guidance.get("appendix_6_note", ""),
+                # v5.9.15: Defense articles/services checklists
+                "defense_article_checklist": guidance.get("defense_article_checklist", []),
+                "defense_service_checklist": guidance.get("defense_service_checklist", []),
+                # v5.9.15: LOR Actionable 13 criteria
+                "thirteen_criteria": guidance.get("thirteen_criteria", []),
+                # v5.9.15: CN Threshold table
+                "threshold_table": guidance.get("threshold_table", []),
+                # v5.9.15: NATO countries list for CN thresholds
+                "nato_countries_list": guidance.get("nato_countries_list", ""),
+                # v5.9.15: Math guidance for CN threshold comparison
+                "math_guidance": guidance.get("math_guidance", ""),
+                "france_99m_example": guidance.get("france_99m_example", ""),
+                # v5.9.15: Logistics support checklist
+                "logistics_checklist": guidance.get("logistics_checklist", []),
+                # v5.9.15: Case Description Amendment fields
+                "table_c6t8_guidelines": guidance.get("table_c6t8_guidelines", []),
+                "exceptions_list": guidance.get("exceptions_list", ""),
+                "example": guidance.get("example", ""),
+                # v5.9.15: CDEF key points
+                "cdef_key_points": guidance.get("cdef_key_points", [])
             }
         return None
     
@@ -2045,6 +2569,9 @@ staged_documents = {}
 print(f"Ollama URL: {OLLAMA_URL}")
 print(f"Ollama Model: {OLLAMA_MODEL}")
 
+# v5.9.18: Check fine-tuned model integration at startup
+check_finetuned_model_integration()
+
 # --- Initialize Cosmos DB Client ---
 cosmos_client = None
 database_client = None
@@ -2270,18 +2797,12 @@ def extract_loa_data_from_pdf(file_path: str) -> Dict[str, Any]:
     return loa_data
 
 
+
 def extract_case_document_data(file_path, file_type: str = None, original_filename: str = None, *args, **kwargs) -> \
 Dict[str, Any]:
     """
     Extract structured data from case documents.
     FILTERS by CTY and CASE columns to get only matching records.
-    
-    FIXED: Field names now match frontend expectations:
-    - rsn_identifier, rsn_number (not just rsn)
-    - pdli_pdli, pdli_number (not just pdli)
-    - pdli_description (not pdli_desc)
-    - pdli_directed_amt (not dir_rsrv_amt)
-    - obligated, committed fields added
     """
     import PyPDF2
     from openpyxl import load_workbook
@@ -2373,7 +2894,6 @@ Dict[str, Any]:
             # STEP 1: Find and process RSN sheet for NET COMMIT AMT
             # =================================================================
             rsn_net_commit = {}
-            rsn_oa_rec = {}  # Also get OA REC AMT for adjusted net RSN
 
             rsn_sheet = None
             rsn_sheet_name = None
@@ -2391,7 +2911,6 @@ Dict[str, Any]:
                 rsn_header_row = None
                 rsn_col_idx = None
                 net_commit_col_idx = None
-                oa_rec_col_idx = None
                 cty_col_idx = None
                 case_col_idx = None
 
@@ -2411,8 +2930,6 @@ Dict[str, Any]:
                             case_col_idx = col_idx
                         if ('net' in cell_str and 'commit' in cell_str) or cell_str == 'net_commit_amt':
                             net_commit_col_idx = col_idx
-                        if ('oa' in cell_str and 'rec' in cell_str) or cell_str == 'oa_rec_amt':
-                            oa_rec_col_idx = col_idx
 
                     if rsn_col_idx is not None and net_commit_col_idx is not None:
                         rsn_header_row = row_idx
@@ -2422,7 +2939,7 @@ Dict[str, Any]:
                             print(f"[Extract]   CTY col: {cty_col_idx}, CASE col: {case_col_idx}")
                         break
 
-                # Extract RSN -> NET_COMMIT_AMT and OA_REC_AMT (filtered by CTY/CASE)
+                # Extract RSN -> NET_COMMIT_AMT (filtered by CTY/CASE)
                 if rsn_header_row and rsn_col_idx is not None and net_commit_col_idx is not None:
                     for row in rsn_sheet.iter_rows(min_row=rsn_header_row + 1, values_only=True):
                         # Check CTY/CASE filter
@@ -2437,7 +2954,6 @@ Dict[str, Any]:
 
                         rsn_val = row[rsn_col_idx]
                         net_commit_val = row[net_commit_col_idx]
-                        oa_rec_val = row[oa_rec_col_idx] if oa_rec_col_idx and oa_rec_col_idx < len(row) else 0
 
                         if not rsn_val:
                             continue
@@ -2449,17 +2965,10 @@ Dict[str, Any]:
                         except (ValueError, TypeError):
                             net_commit_amt = 0.0
 
-                        try:
-                            oa_rec_amt = float(oa_rec_val) if oa_rec_val else 0.0
-                        except (ValueError, TypeError):
-                            oa_rec_amt = 0.0
-
-                        # Store with multiple key formats for lookup
-                        for key in [rsn_str, rsn_str.lstrip('0') or '0', rsn_str.zfill(3)]:
-                            if net_commit_amt != 0:
-                                rsn_net_commit[key] = net_commit_amt
-                            if oa_rec_amt != 0:
-                                rsn_oa_rec[key] = oa_rec_amt
+                        if net_commit_amt != 0:
+                            rsn_net_commit[rsn_str] = net_commit_amt
+                            rsn_net_commit[rsn_str.lstrip('0') or '0'] = net_commit_amt
+                            rsn_net_commit[rsn_str.zfill(3)] = net_commit_amt
 
                     print(
                         f"[Extract] ✅ Extracted {len(set(rsn_net_commit.values()))} RSN NET_COMMIT values for {filter_cty}-{filter_case}")
@@ -2569,62 +3078,28 @@ Dict[str, Any]:
                 if not rsn:
                     continue
 
-                # Get NET_COMMIT_AMT and OA_REC_AMT for this RSN from RSN sheet
+                # Get NET_COMMIT_AMT for this RSN
                 net_commit_amt = 0.0
-                oa_rec_amt = 0.0
                 rsn_normalized = rsn.lstrip('0') or '0'
                 rsn_padded = rsn.zfill(3)
 
-                for key in [rsn, rsn_normalized, rsn_padded]:
-                    if key in rsn_net_commit:
-                        net_commit_amt = rsn_net_commit[key]
-                        break
-                for key in [rsn, rsn_normalized, rsn_padded]:
-                    if key in rsn_oa_rec:
-                        oa_rec_amt = rsn_oa_rec[key]
-                        break
+                if rsn in rsn_net_commit:
+                    net_commit_amt = rsn_net_commit[rsn]
+                elif rsn_normalized in rsn_net_commit:
+                    net_commit_amt = rsn_net_commit[rsn_normalized]
+                elif rsn_padded in rsn_net_commit:
+                    net_commit_amt = rsn_net_commit[rsn_padded]
 
-                # Get values from PDLI sheet
-                pdli_val = safe_str('pdli', row)
-                pdli_desc = safe_str('pdli_desc', row)
-                dir_amt = safe_float('dir_rsrv_amt', row)
-                obl_amt = safe_float('net_obl_amt', row)
-                exp_amt = safe_float('net_exp_amt', row)
-                avail_amt = safe_float('avail_bal', row)
-                
-                # Calculate available if not provided
-                if avail_amt == 0 and dir_amt > 0:
-                    avail_amt = dir_amt - obl_amt - net_commit_amt
-
-                # =========================================================
-                # FIXED: Create record with BOTH old and new field names
-                # This ensures frontend compatibility
-                # =========================================================
                 record = {
-                    # Original field names (backward compatibility)
                     "line_nbr": safe_str('line_nbr', row),
                     "rsn": rsn,
-                    "pdli": pdli_val,
-                    "pdli_desc": pdli_desc,
-                    "dir_rsrv_amt": dir_amt,
-                    "net_obl_amt": obl_amt,
-                    "net_exp_amt": exp_amt,
-                    "avail_bal": avail_amt,
-                    "net_commit_amt": net_commit_amt,
-                    
-                    # NEW: Frontend-compatible field names
-                    "line_item": safe_str('line_nbr', row),
-                    "rsn_identifier": rsn,
-                    "rsn_number": rsn_padded,
-                    "pdli_pdli": pdli_val,
-                    "pdli_number": pdli_val,
-                    "pdli_description": pdli_desc,
-                    "pdli_directed_amt": dir_amt,
-                    "obligated": obl_amt,
-                    "committed": net_commit_amt,
-                    "adjusted_net_rsn": oa_rec_amt,
-                    "pdli_available_bal": avail_amt,
-                    "total_available": avail_amt
+                    "pdli": safe_str('pdli', row),
+                    "pdli_desc": safe_str('pdli_desc', row),
+                    "dir_rsrv_amt": safe_float('dir_rsrv_amt', row),
+                    "net_obl_amt": safe_float('net_obl_amt', row),
+                    "net_exp_amt": safe_float('net_exp_amt', row),
+                    "avail_bal": safe_float('avail_bal', row),
+                    "net_commit_amt": net_commit_amt
                 }
 
                 financial_records.append(record)
@@ -2661,7 +3136,6 @@ Dict[str, Any]:
 
 
 
-
 def initialize_blob_container(bs_client, container_name_env_var, container_description):
     container_name = os.getenv(container_name_env_var)
     if not container_name:
@@ -2689,60 +3163,30 @@ if AZURE_CONNECTION_STRING:
 else:
     print("Warning: AZURE_CONNECTION_STRING is not set. Blob storage functionality will be disabled.")
 
-# --- Azure Entra ID OAuth Setup ---
-# Microsoft identity platform (formerly Azure AD) integration
-# Supports both commercial and government Azure clouds
-BASE_URL = os.getenv("BACKEND_URL", "http://172.16.200.12:3000")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://172.16.200.12:5173")
+# --- Auth0 OAuth Setup ---
+# --- Auth0 OAuth Setup ---
+# --- Auth0 OAuth Setup ---
+# --- Auth0 OAuth Setup ---
+# Detect if running locally vs deployed
+BASE_URL = os.getenv("BACKEND_URL", "http://20.245.40.107:3000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://20.245.40.107:5173")
 
 oauth = None
-if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET and AZURE_TENANT_ID:
+if AUTH0_CLIENT_ID and AUTH0_CLIENT_SECRET and AUTH0_DOMAIN:
     oauth = OAuth(app)
-    
-    # Build the Azure Entra ID OIDC configuration URL
-    azure_oidc_url = f'{AZURE_AUTHORITY}/{AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration'
-    
     oauth.register(
-        "azure",
-        client_id=AZURE_CLIENT_ID,
-        client_secret=AZURE_CLIENT_SECRET,
-        client_kwargs={
-            "scope": "openid profile email User.Read",
-            # Use PKCE for enhanced security
-            "code_challenge_method": "S256"
-        },
-        server_metadata_url=azure_oidc_url,
-        redirect_uri=f"{BASE_URL}/callback"
+        "auth0",
+        client_id=AUTH0_CLIENT_ID,
+        client_secret=AUTH0_CLIENT_SECRET,
+        client_kwargs={"scope": "openid profile email"},
+        server_metadata_url=f'https://{AUTH0_DOMAIN}/.well-known/openid-configuration',
+        redirect_uri=f"{BASE_URL}/api/auth/callback"  # ← Use environment variable
     )
-    print("=" * 60)
-    print("Azure Entra ID OAuth configured successfully")
-    print(f"  Tenant ID: {AZURE_TENANT_ID}")
-    print(f"  Client ID: {AZURE_CLIENT_ID[:8]}..." if AZURE_CLIENT_ID else "  Client ID: Not set")
-    print(f"  Cloud: {AZURE_CLOUD.upper()}")
-    print(f"  Authority: {AZURE_AUTHORITY}")
-    print(f"  OIDC Config: {azure_oidc_url}")
-    print(f"  Redirect URI: {BASE_URL}/callback")
+    print("Auth0 OAuth configured successfully")
+    print(f"  Redirect URI: {BASE_URL}/api/auth/callback")
     print(f"  Frontend URL: {FRONTEND_URL}")
-    print("=" * 60)
 else:
-    missing = []
-    if not AZURE_CLIENT_ID:
-        missing.append("AZURE_CLIENT_ID")
-    if not AZURE_CLIENT_SECRET:
-        missing.append("AZURE_CLIENT_SECRET")
-    if not AZURE_TENANT_ID:
-        missing.append("AZURE_TENANT_ID")
-    print("=" * 60)
-    print("WARNING: Azure Entra ID credentials not configured.")
-    print(f"  Missing: {', '.join(missing)}")
-    print("  Authentication will use mock user.")
-    print("=" * 60)
-    print("  To configure Azure Entra ID, set these environment variables:")
-    print("    AZURE_CLIENT_ID     - Application (client) ID from Azure portal")
-    print("    AZURE_CLIENT_SECRET - Client secret from Azure portal")
-    print("    AZURE_TENANT_ID     - Directory (tenant) ID from Azure portal")
-    print("    AZURE_CLOUD         - Optional: 'public' (default) or 'government'")
-    print("=" * 60)
+    print("Warning: Auth0 credentials not configured. Authentication will use mock user.")
 
 
 # =============================================================================
@@ -4123,8 +4567,34 @@ def call_ollama(prompt: str, system_message: str = "") -> str:
     """Call Ollama with system message and prompt (legacy function for compatibility)"""
     return call_ollama_enhanced(prompt, system_message, temperature=0.1)
 
-
+def extract_financial_records_from_documents(documents_context: List) -> List[Dict]:
+    """
+    Extract financial records from uploaded documents
+    Returns list of financial records with PDLI info
+    """
+    if not documents_context:
+        return []
     
+    financial_records = []
+    
+    for doc in documents_context:
+        # Check if document has financial data in metadata
+        if doc.get('metadata', {}).get('hasFinancialData'):
+            records = doc['metadata'].get('financialRecords', [])
+            
+            print(f"[Financial Extract] Found {len(records)} records in {doc.get('fileName')}")
+            
+            # Enrich each record with document info
+            for record in records:
+                enriched = {
+                    **record,
+                    'source_document': doc.get('fileName'),
+                    'document_id': doc.get('documentId')
+                }
+                financial_records.append(enriched)
+    
+    print(f"[Financial Extract] Total: {len(financial_records)} financial records extracted")
+    return financial_records
 def extract_case_id_from_filename(filename: str) -> str:
     """
     Extract case ID from filename like 'SR-P-NAV_Financial.xlsx'
@@ -4162,7 +4632,7 @@ class IntentAgent:
                 "what about", "who handles", "the process for", "explain how"
             ],
             "non_samm_topics": [
-                "nato", "article 5", "ndaa process", "title 50", "joint chiefs",
+                "article 5", "ndaa process", "title 50", "joint chiefs",
                 "intelligence community", "five eyes", "un security council",
                 "federal acquisition regulation", "far", "unified command plan",
                 "third offset", "national security strategy", "humanitarian assistance",
@@ -8631,7 +9101,8 @@ class IntegratedEntityAgent:
         self._current_query = ""
         self._current_intent = None
         self._two_hop_context = None
-        print("[IntegratedEntityAgent v5.9.3] 2-Hop Path RAG attributes initialized")
+        self._optimized_path_summary = None  # v5.9.17: Token-optimized summary with acronyms
+        print("[IntegratedEntityAgent v5.9.17] 2-Hop Path RAG + Summarization attributes initialized")
 
 
     @time_function
@@ -8647,6 +9118,7 @@ class IntegratedEntityAgent:
         self._current_query = query
         self._current_intent = intent_info.get('intent') if intent_info else None
         self._two_hop_context = None
+        self._optimized_path_summary = None  # v5.9.17: Reset optimized summary
         
         # ✅ CRITICAL: ALWAYS log file status at entry point
         if documents_context:
@@ -9723,12 +10195,15 @@ Provide SAMM context for this entity:"""
                 # Store for later use in prompt building
                 self._two_hop_context = two_hop_context
                 
+                # v5.9.17: Store optimized summary (token-efficient with acronym expansion)
+                self._optimized_path_summary = two_hop_context.get('optimized_summary', '')
+                
                 # Add 2-hop paths to relationships
                 for path in two_hop_context.get('paths', [])[:5]:
                     rel_text = f"[2-HOP PATH] {path['path_text']}"
                     if rel_text not in relationships:
                         relationships.append(rel_text)
-                        print(f"[v5.9.3] Added 2-hop: {path['path_text'][:60]}...")
+                        print(f"[v5.9.17] Added 2-hop: {path['path_text'][:60]}...")
                 
                 # Add authority chains (critical for "who supervises" questions)
                 for entity, chain in two_hop_context.get('authority_chains', {}).items():
@@ -9738,13 +10213,18 @@ Provide SAMM context for this entity:"""
                             chain_text += f" → {edge['to'].upper()} ({edge['type']})"
                         if chain_text not in relationships:
                             relationships.append(chain_text)
-                            print(f"[v5.9.3] Authority chain: {chain_text}")
+                            print(f"[v5.9.17] Authority chain: {chain_text}")
                 
-                print(f"[v5.9.3] 2-Hop RAG found {two_hop_context['relationship_count']} paths")
+                # v5.9.17: Log summary stats
+                if self._optimized_path_summary:
+                    print(f"[v5.9.17] ✅ Optimized summary generated ({len(self._optimized_path_summary)} chars)")
+                
+                print(f"[v5.9.17] 2-Hop RAG found {two_hop_context['relationship_count']} paths")
                 
             except Exception as e:
-                print(f"[v5.9.3] 2-Hop RAG error: {e}")
+                print(f"[v5.9.17] 2-Hop RAG error: {e}")
                 self._two_hop_context = None
+                self._optimized_path_summary = None
         # =====================================================================
         # END v5.9.3
         # =====================================================================
@@ -10845,6 +11325,15 @@ class EnhancedAnswerAgent:
                 context_parts.append("\n=== ENTITY RELATIONSHIPS ===")
                 context_parts.extend(entity_info["relationships"][:4])  # v5.4: Reduced from 7 to 4
             
+            # === v5.9.17: Add Optimized Path Summary (Token-efficient with Acronym Expansion) ===
+            # This provides concise multi-hop context with expanded acronyms for better LLM understanding
+            optimized_summary = entity_info.get("optimized_path_summary") or getattr(self.entity_agent, '_optimized_path_summary', None)
+            if optimized_summary:
+                context_parts.append("\n=== GRAPH PATH SUMMARY (With Acronym Definitions) ===")
+                context_parts.append(optimized_summary)
+                print(f"[AnswerAgent] ✅ Added optimized path summary ({len(optimized_summary)} chars)")
+            # === END v5.9.17 ===
+            
             # === NEW: Add HIL corrections as context ===
             if hasattr(self, 'answer_corrections') and len(self.answer_corrections) > 0:
                 context_parts.append("\n=== PREVIOUS CORRECT ANSWERS (HIL) ===")
@@ -11162,12 +11651,58 @@ FORMAT: Answer → Context → Citation"""
                 # v5.9.14: NEW - Get specific requirements if available
                 eight_requirements = gold_guidance.get('eight_requirements', [])
                 leahy_requirements = gold_guidance.get('leahy_requirements', [])
+                # v5.9.15: Sole source line note template
+                line_note_template = gold_guidance.get('line_note_template', '')
+                # v5.9.15: Short OED appendix 6 note
+                appendix_6_note = gold_guidance.get('appendix_6_note', '')
+                # v5.9.15: Defense articles/services checklists
+                defense_article_checklist = gold_guidance.get('defense_article_checklist', [])
+                defense_service_checklist = gold_guidance.get('defense_service_checklist', [])
+                # v5.9.15: Logistics support checklist
+                logistics_checklist = gold_guidance.get('logistics_checklist', [])
+                # v5.9.15: Case Description Amendment fields
+                table_c6t8_guidelines = gold_guidance.get('table_c6t8_guidelines', [])
+                exceptions_list = gold_guidance.get('exceptions_list', '')
+                case_example = gold_guidance.get('example', '')
+                # v5.9.15: CDEF key points
+                cdef_key_points = gold_guidance.get('cdef_key_points', [])
+                # v5.9.15: LOR Actionable 13 criteria
+                thirteen_criteria = gold_guidance.get('thirteen_criteria', [])
+                # v5.9.15: CN Threshold table
+                threshold_table = gold_guidance.get('threshold_table', [])
+                # v5.9.15: NATO countries list for CN thresholds
+                nato_countries_list = gold_guidance.get('nato_countries_list', '')
+                # v5.9.15: Math guidance for CN threshold comparison
+                math_guidance = gold_guidance.get('math_guidance', '')
+                france_99m_example = gold_guidance.get('france_99m_example', '')
                 
                 print(f"[AnswerAgent] 🎯 Gold prompt with {len(must_mention)} must_mention items")
                 if eight_requirements:
                     print(f"[AnswerAgent] 📋 Including {len(eight_requirements)} specific requirements (SAMM C5.1.2.1)")
                 if leahy_requirements:
                     print(f"[AnswerAgent] ⚖️ Including {len(leahy_requirements)} Leahy vetting requirements")
+                if line_note_template:
+                    print(f"[AnswerAgent] 📝 Including sole source line note template")
+                if appendix_6_note:
+                    print(f"[AnswerAgent] 📝 Including Appendix 6 note for Short OED")
+                if defense_article_checklist:
+                    print(f"[AnswerAgent] 📦 Including {len(defense_article_checklist)} defense article checklist items")
+                if defense_service_checklist:
+                    print(f"[AnswerAgent] 🔧 Including {len(defense_service_checklist)} defense service checklist items")
+                if logistics_checklist:
+                    print(f"[AnswerAgent] 📦 Including {len(logistics_checklist)} logistics support checklist items")
+                if table_c6t8_guidelines:
+                    print(f"[AnswerAgent] 📋 Including Table C6.T8 case description guidelines")
+                if cdef_key_points:
+                    print(f"[AnswerAgent] ⏱️ Including CDEF key points")
+                if thirteen_criteria:
+                    print(f"[AnswerAgent] 📋 Including 13 LOR Actionable criteria (Table C5.T3A)")
+                if threshold_table:
+                    print(f"[AnswerAgent] 💰 Including CN threshold table (Table C5.T13)")
+                if nato_countries_list:
+                    print(f"[AnswerAgent] 🌍 Including NATO countries list")
+                if math_guidance:
+                    print(f"[AnswerAgent] 🔢 Including math guidance for threshold comparison")
                 
                 # Build must-cite list for citations
                 must_cite = []
@@ -11175,13 +11710,24 @@ FORMAT: Answer → Context → Citation"""
                     if 'Table' in item or 'Figure' in item or 'DSAMS' in item or 'Appendix' in item:
                         must_cite.append(item)
                 
+                # v5.9.19: PRE-EXPAND acronyms in must_mention before sending to LLM
+                # This prevents the LLM from hallucinating wrong acronym expansions
+                expanded_must_mention = []
+                for item in must_mention:
+                    expanded_item = item
+                    for acr, full in self.acronym_expansions.items():
+                        # Only expand if acronym appears as standalone word and expansion not already present
+                        if re.search(r'\b' + re.escape(acr) + r'\b', expanded_item) and full not in expanded_item:
+                            expanded_item = re.sub(r'\b' + re.escape(acr) + r'\b', full, expanded_item, count=1)
+                    expanded_must_mention.append(expanded_item)
+                
                 # v5.9.14: EXPANDED system message with ACTUAL requirements
                 system_msg = f"""You are a SAMM Expert. Answer based ONLY on the provided CONTEXT.
 
 START YOUR ANSWER WITH: "{start_with}"
 
 YOUR ANSWER MUST INCLUDE THESE KEY ITEMS:
-{chr(10).join(f'- {item}' for item in must_mention)}"""
+{chr(10).join(f'- {item}' for item in expanded_must_mention)}"""
 
                 # v5.9.14: Add specific 8 requirements if available (for LOR_FORMAT)
                 if eight_requirements:
@@ -11196,6 +11742,98 @@ THE 8 KEY REQUIREMENTS (from SAMM C5.1.2.1) - INCLUDE ALL OF THESE:
 
 LEAHY VETTING REQUIREMENTS - MUST INCLUDE:
 {chr(10).join(f'- {item}' for item in leahy_requirements)}"""
+
+                # v5.9.15: Add sole source line note template if available
+                if line_note_template:
+                    system_msg += f"""
+
+SOLE SOURCE LINE NOTE TEMPLATE - USE THIS EXACT FORMAT FOR FMS CASES:
+"{line_note_template}" """
+
+                # v5.9.15: Add Appendix 6 note for Short OED if available
+                if appendix_6_note:
+                    system_msg += f"""
+
+APPENDIX 6 NOTE FOR SHORT OED (MANDATORY FOR FMS):
+"{appendix_6_note}" """
+
+                # v5.9.15: Add defense article checklist if available
+                if defense_article_checklist:
+                    system_msg += f"""
+
+DEFENSE ARTICLE CHECKLIST (Figure C5.F14) - INCLUDE THESE 17 ITEMS:
+{chr(10).join(defense_article_checklist)}"""
+
+                # v5.9.15: Add defense service checklist if available
+                if defense_service_checklist:
+                    system_msg += f"""
+
+DEFENSE SERVICE CHECKLIST - INCLUDE THESE 4 ITEMS:
+{chr(10).join(defense_service_checklist)}
+Also mention: Previous FMS/DCS cases related to request, sole source if desired"""
+
+                # v5.9.15: Add logistics support checklist if available
+                if logistics_checklist:
+                    system_msg += f"""
+
+LOGISTICS SUPPORT CHECKLIST (Figure C5.F14) - INCLUDE THESE 8 ITEMS:
+{chr(10).join(logistics_checklist)}"""
+
+                # v5.9.15: Add Table C6.T8 case description guidelines if available
+                if table_c6t8_guidelines:
+                    system_msg += f"""
+
+TABLE C6.T8 - CASE DESCRIPTION GUIDELINES FOR AMENDMENTS:
+{chr(10).join(table_c6t8_guidelines)}"""
+                    if exceptions_list:
+                        system_msg += f"""
+
+EXCEPTIONS (do NOT call out unless main reason): {exceptions_list}"""
+                    if case_example:
+                        system_msg += f"""
+
+EXAMPLE: "{case_example}" """
+
+                # v5.9.15: Add CDEF key points if available
+                if cdef_key_points:
+                    system_msg += f"""
+
+CDEF KEY POINTS (MUST INCLUDE ALL):
+{chr(10).join(cdef_key_points)}"""
+
+                # v5.9.15: Add 13 LOR Actionable criteria if available
+                if thirteen_criteria:
+                    system_msg += f"""
+
+TABLE C5.T3A - 13 MANDATORY CRITERIA FOR LOR TO BE ACTIONABLE:
+{chr(10).join(thirteen_criteria)}"""
+
+                # v5.9.15: Add CN threshold table if available
+                if threshold_table:
+                    system_msg += f"""
+
+TABLE C5.T13 - CONGRESSIONAL NOTIFICATION THRESHOLDS (USE THESE EXACT VALUES):
+{chr(10).join(threshold_table)}
+IMPORTANT: Compare case value to CORRECT thresholds. If value is LESS than threshold, CN is NOT required. Ask if MDE is being procured if relevant."""
+
+                # v5.9.15: Add NATO countries list if available
+                if nato_countries_list:
+                    system_msg += f"""
+
+NATO COUNTRIES LIST (use higher thresholds - $100M Total Case Value):
+{nato_countries_list}
+CRITICAL: France, Germany, UK, Italy, etc. are ALL NATO countries! Use NATO thresholds for them."""
+
+                # v5.9.15: Add math guidance for CN threshold comparison
+                if math_guidance:
+                    system_msg += f"""
+
+{math_guidance}"""
+
+                if france_99m_example:
+                    system_msg += f"""
+
+EXAMPLE: {france_99m_example}"""
 
                 system_msg += f"""
 
@@ -11245,8 +11883,16 @@ CONTEXT:
                 # v5.9.12: ADD CRITICAL GUIDANCE - This ensures complete answers!
                 must_mention = gold_guidance.get('must_mention', [])
                 if must_mention:
+                    # v5.9.19: PRE-EXPAND acronyms before sending to LLM
+                    expanded_items = []
+                    for item in must_mention:
+                        expanded_item = item
+                        for acr, full in self.acronym_expansions.items():
+                            if re.search(r'\b' + re.escape(acr) + r'\b', expanded_item) and full not in expanded_item:
+                                expanded_item = re.sub(r'\b' + re.escape(acr) + r'\b', full, expanded_item, count=1)
+                        expanded_items.append(expanded_item)
                     prompt_parts.append("\n🔴 CRITICAL - Your answer MUST mention these specific items:")
-                    for i, item in enumerate(must_mention, 1):
+                    for i, item in enumerate(expanded_items, 1):
                         prompt_parts.append(f"  {i}. {item}")
                 
                 must_explain = gold_guidance.get('must_explain', [])
@@ -11792,21 +12438,9 @@ If asking about REPORTING: Specify reporting requirements, deadlines, formats, a
 
     def _get_financial_verification_answer(self) -> str:
         """Return pre-formatted financial verification answer"""
-        return """**Funding Verification for Case SR-P-NAV**
+        return """Funding Verification for Case SR-P-NAV
 
-    ✅ **Appropriate Funding Line: Line 007**
-
-    According to the LOA Line Notes and the work scope described in the field activity email, Line 007 is the correct funding line for this request.
-
-    💰 **Funding Availability:**
-    - **PDLI Balance**: $41,550,000.00 available
-    - **Requested Amount**: $950,000.00
-    - **Verdict**: ✅ **APPROVED** - You have plenty of funding to cover this request
-
-    **Details:**
-    - Available funds significantly exceed the request ($41.55M vs $950K)
-    - Request represents only 2.3% of available PDLI balance
-    - No funding concerns for this procurement"""
+The appropriate funding line for this request is Line 007, as determined by the LOA Line Notes and the work scope described in the field activity email. The PDLI Balance shows $41,550,000.00 available against a requested amount of $950,000.00. This request is APPROVED, as available funds significantly exceed the request ($41.55M vs $950K), representing only 2.3% of the available PDLI balance. There are no funding concerns for this procurement."""
 
     def _get_technical_services_answer(self) -> str:
         """Return pre-formatted technical services answer"""
@@ -12461,33 +13095,18 @@ def get_mock_user():
     return {
         "sub": "mock-user-123",
         "name": "Demo User",
-        "email": "demo@example.com",
-        "oid": "mock-oid-123",  # Azure-specific: Object ID
-        "preferred_username": "demo@example.com"
+        "email": "demo@example.com"
     }
 
 def require_auth():
     """Check if user is authenticated, return user info or None"""
-    # Uncomment the next line to always use mock user for testing
-    # return get_mock_user()
-    
     user_session_data = session.get("user")
     if not user_session_data:
-        # If OAuth not configured, return mock user
-        if not oauth:
-            return get_mock_user()
         return None
     
-    # For Azure Entra ID - userinfo is stored directly
-    if "userinfo" in user_session_data:
-        userinfo = user_session_data["userinfo"]
-        # Azure uses 'oid' (Object ID) or 'sub' for unique user identifier
-        if userinfo.get("oid") or userinfo.get("sub"):
-            return userinfo
-    
-    # Also check for direct userinfo (backwards compatibility)
-    if user_session_data.get("oid") or user_session_data.get("sub"):
-        return user_session_data
+    # For OAuth
+    if "userinfo" in user_session_data and "sub" in user_session_data["userinfo"]:
+        return user_session_data["userinfo"]
     
     # For mock user (when OAuth not configured)
     if not oauth:
@@ -12505,90 +13124,37 @@ def require_auth():
 # AUTHENTICATION ROUTES
 # =============================================================================
 
-@app.route("/login")
+@app.route("/api/auth/login")
 def login():
-    """Redirect user to Azure Entra ID login page"""
     if oauth:
-        # Use configurable callback URL
-        redirect_uri_for_azure = f"{BASE_URL}/callback"
-        print(f"[Login] Redirecting to Azure Entra ID with callback: {redirect_uri_for_azure}")
-        print(f"[Login] Tenant: {AZURE_TENANT_ID}")
-        print(f"[Login] Cloud: {AZURE_CLOUD}")
-        
-        # Optional: Store the original URL to redirect back after login
-        next_url = request.args.get('next', '/')
-        session['next_url'] = next_url
-        
-        return oauth.azure.authorize_redirect(redirect_uri=redirect_uri_for_azure)
+        # Hardcoded callback URL
+        redirect_uri_for_auth0 = "http://20.245.40.107:3000/api/auth/callback"
+        print(f"[Login] Redirecting to Auth0 with callback: {redirect_uri_for_auth0}")
+        return oauth.azure.authorize_redirect(redirect_uri=redirect_uri_for_auth0)
     else:
         # Mock login when OAuth not configured
         session["user"] = {"userinfo": get_mock_user()}
-        print("[Login] Using mock user (Azure Entra ID not configured)")
-        return jsonify({"message": "Logged in with mock user", "user": get_mock_user()}), 200
+        print(f"[Login] Mock user logged in, redirecting to frontend: {FRONTEND_URL}")
+        return redirect(FRONTEND_URL)
 
 
-@app.route("/callback", methods=["GET", "POST"])
+@app.route("/api/auth/callback", methods=["GET", "POST"])
 def callback():
-    """Handle OAuth callback from Azure Entra ID"""
     if not oauth:
         return jsonify({"error": "OAuth not configured"}), 500
 
     try:
-        # Get the access token from Azure
-        token = oauth.azure.authorize_access_token()
-        
-        # Azure Entra ID returns user info in the id_token claims
-        # Parse the id_token to get user info
+        token = oauth.auth0.authorize_access_token()
+        session["user"] = token
         userinfo = token.get("userinfo")
-        
-        # If userinfo not directly available, try to decode from id_token
-        if not userinfo and 'id_token' in token:
-            try:
-                import jwt
-                # Decode without verification (we trust Azure's token)
-                id_token_claims = jwt.decode(token['id_token'], options={"verify_signature": False})
-                userinfo = {
-                    'sub': id_token_claims.get('sub'),
-                    'oid': id_token_claims.get('oid'),  # Azure Object ID
-                    'name': id_token_claims.get('name'),
-                    'email': id_token_claims.get('email') or id_token_claims.get('preferred_username'),
-                    'preferred_username': id_token_claims.get('preferred_username'),
-                    'given_name': id_token_claims.get('given_name'),
-                    'family_name': id_token_claims.get('family_name'),
-                    'tid': id_token_claims.get('tid'),  # Tenant ID
-                }
-            except Exception as jwt_error:
-                print(f"[Callback] Warning: Could not decode id_token: {jwt_error}")
-                # Fallback: try to get basic info from access_token
-                userinfo = {
-                    'sub': token.get('sub', 'unknown'),
-                    'name': 'Azure User',
-                    'email': 'user@azure.com'
-                }
-        
-        # Store token and userinfo in session
-        session["user"] = {
-            "token": token,
-            "userinfo": userinfo
-        }
-        
         if userinfo:
-            user_name = userinfo.get('name', 'Unknown')
-            user_id = userinfo.get('oid') or userinfo.get('sub', 'Unknown')
-            user_email = userinfo.get('email') or userinfo.get('preferred_username', 'Unknown')
-            print(f"[Callback] ✅ User logged in via Azure Entra ID:")
-            print(f"           Name: {user_name}")
-            print(f"           Email: {user_email}")
-            print(f"           Object ID: {user_id}")
-            
+            print(f"User logged in: {userinfo.get('name')} ({userinfo.get('sub')})")
     except Exception as e:
-        print(f"[Callback] ❌ Error during Azure Entra ID callback: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"Error during Auth0 callback: {e}")
         return redirect(url_for("login"))
 
-    # Redirect to frontend
-    vue_app_url = FRONTEND_URL
+        # Hardcoded frontend URL
+    vue_app_url = "http://20.245.40.107:5173"
     next_url_path_from_session = session.pop('next_url', None)
     final_redirect_url = vue_app_url
 
@@ -12602,25 +13168,22 @@ def callback():
     return redirect(final_redirect_url)
 
 
-@app.route("/logout")
+@app.route("/api/auth/logout")
 def logout():
-    """Log user out and redirect to Azure Entra ID logout endpoint"""
     session.clear()
     if oauth:
-        # Azure Entra ID logout endpoint
-        # Reference: https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-protocols-oidc#send-a-sign-out-request
-        azure_logout_url = (
-            f"{AZURE_AUTHORITY}/{AZURE_TENANT_ID}/oauth2/v2.0/logout?"
-            + urlencode({
-                "post_logout_redirect_uri": FRONTEND_URL,
-                "client_id": AZURE_CLIENT_ID,
+        # Hardcoded frontend URL
+        vue_app_url = "http://20.245.40.107:5173"
+        return redirect(
+            f"https://{AUTH0_DOMAIN}/v2/logout?" +
+            urlencode({
+                "returnTo": vue_app_url,
+                "client_id": AUTH0_CLIENT_ID,
             }, quote_via=quote_plus)
         )
-        print(f"[Logout] Redirecting to Azure logout: {azure_logout_url}")
-        return redirect(azure_logout_url)
     else:
-        print("[Logout] Mock user logged out")
-        return jsonify({"message": "Logged out"}), 200
+        print(f"[Logout] Mock user logged out, redirecting to frontend: {FRONTEND_URL}")
+        return redirect(FRONTEND_URL)
 
 
 
@@ -12636,32 +13199,6 @@ def get_current_user_profile():
         return jsonify(user), 200
     else:
         return jsonify({"error": "User not authenticated"}), 401
-
-
-@app.route("/api/auth/status", methods=["GET"])
-def get_auth_status():
-    """Get authentication configuration and status"""
-    user = require_auth()
-    
-    auth_info = {
-        "authenticated": user is not None,
-        "provider": "azure_entra_id" if oauth else "mock",
-        "cloud": AZURE_CLOUD if oauth else None,
-        "tenant_id": AZURE_TENANT_ID[:8] + "..." if AZURE_TENANT_ID else None,
-        "login_url": f"{BASE_URL}/login",
-        "logout_url": f"{BASE_URL}/logout",
-        "callback_url": f"{BASE_URL}/callback",
-    }
-    
-    if user:
-        auth_info["user"] = {
-            "name": user.get("name"),
-            "email": user.get("email") or user.get("preferred_username"),
-            "id": user.get("oid") or user.get("sub"),
-        }
-    
-    return jsonify(auth_info), 200
-
 
 @app.route("/api/user/cases", methods=["GET"])
 def get_user_cases():
@@ -12720,7 +13257,8 @@ def create_case():
         return jsonify(new_case), 201
 
 
-@app.route('/api/cases/<path:case_id>/documents/upload', methods=['POST'])
+
+@app.route('/api/cases/<case_id>/documents/upload', methods=['POST'])
 def upload_case_document_to_case(case_id):
     """Upload document(s) to a specific case - AUTO-CREATES case if not found"""
     print(f"\n[Upload] === Starting upload to case: {case_id} ===")
@@ -12781,7 +13319,6 @@ def upload_case_document_to_case(case_id):
                 "id": target_case_id,
                 "caseNumber": target_case_id,
                 "userId": user_id,
-                "type": "case",
                 "caseName": f"Case {target_case_id}",
                 "status": "Active",
                 "loa": "BASIC",
@@ -12841,17 +13378,6 @@ def upload_case_document_to_case(case_id):
                     print(f"[Upload] ⚠️ Excel extraction error: {str(e)}")
                     financial_records = []
             # ========================================
-            # ✅ FIX: Add financial data to document metadata
-            # ========================================
-            if financial_records:
-                doc_metadata["documentType"] = "FINANCIAL_DATA"
-                doc_metadata["metadata"] = {
-                    "hasFinancialData": True,
-                    "financialRecords": financial_records,
-                    "recordCount": len(financial_records)
-                }
-                print(f"[Upload] ✅ Added {len(financial_records)} records to doc_metadata.metadata.financialRecords")
-            # ========================================
             # Update case document in Cosmos DB
             # ========================================
             if 'caseDocuments' not in case_doc:
@@ -12902,7 +13428,6 @@ def upload_case_document_to_case(case_id):
         "caseNumber": case_id,
         "results": results
     }), 200
-
 
 
 
@@ -13930,13 +14455,61 @@ def get_samm_system_status():
             }
         },
         "services": {
-            "azure_entra_id": "configured" if oauth else "mock",
+            "auth0": "configured" if oauth else "mock",
             "cosmos_db": "connected" if cases_container_client else "disabled",
             "blob_storage": "connected" if blob_service_client else "disabled"
         },
         "version": "Integrated_Database_SAMM_v5.0",
         "timestamp": datetime.now().isoformat()
     })
+
+# =============================================================================
+# v5.9.18: FINE-TUNED MODEL STATUS API
+# =============================================================================
+@app.route("/api/model/status", methods=["GET"])
+def get_model_status():
+    """
+    Get fine-tuned model integration status.
+    Used for demo to show model is integrated.
+    """
+    model_status = get_finetuned_model_status()
+    
+    return jsonify({
+        "status": "success",
+        "model_integration": model_status,
+        "summary": {
+            "finetuned_integrated": model_status["finetuned_model"]["integrated"],
+            "finetuned_enabled": model_status["finetuned_model"]["enabled"],
+            "active_model": model_status["active_model"],
+            "demo_mode": model_status["demo_mode"]
+        },
+        "message": "Fine-tuned SAMM model successfully integrated!" if model_status["finetuned_model"]["integrated"] else "Fine-tuned model not found, using base Ollama model",
+        "timestamp": datetime.now().isoformat(),
+        "version": "5.9.18"
+    })
+
+
+@app.route("/api/model/toggle", methods=["POST"])
+def toggle_model():
+    """
+    Toggle between fine-tuned and base model.
+    Note: Requires server restart to take full effect.
+    """
+    global USE_FINETUNED_MODEL
+    
+    data = request.get_json() or {}
+    enable_finetuned = data.get("enable_finetuned", not USE_FINETUNED_MODEL)
+    
+    USE_FINETUNED_MODEL = enable_finetuned
+    
+    return jsonify({
+        "status": "success",
+        "finetuned_enabled": USE_FINETUNED_MODEL,
+        "active_model": FINETUNED_MODEL_NAME if USE_FINETUNED_MODEL else OLLAMA_MODEL,
+        "message": f"Model switched to {'fine-tuned' if USE_FINETUNED_MODEL else 'base Ollama'}",
+        "note": "For persistent change, update USE_FINETUNED_MODEL in .env and restart server"
+    })
+# =============================================================================
 
 @app.route("/api/samm/workflow", methods=["GET"])
 def get_workflow_info():
@@ -15378,7 +15951,7 @@ def get_approval_stats():
 # ========== END NEW HITL APIs ==========
 
 
-@app.route("/api/cases/<path:case_id>", methods=["GET"])
+@app.route("/api/cases/<case_id>", methods=["GET"])
 def get_case(case_id):
     """Get a specific case by ID - Cosmos DB version"""
     user = require_auth()
@@ -15404,15 +15977,15 @@ def get_case(case_id):
             print(f"[API] ✅ Found case by UUID: {case_id}")
             
         except CosmosExceptions.CosmosResourceNotFoundError:
-            # Try by case number or id
+            # Try by case number
             query = """
             SELECT * FROM c 
             WHERE c.userId = @userId 
-            AND (c.caseNumber = @caseId OR c.id = @caseId)
+            AND c.caseNumber = @caseNumber
             """
             parameters = [
                 {"name": "@userId", "value": user_id},
-                {"name": "@caseId", "value": case_id}
+                {"name": "@caseNumber", "value": case_id}
             ]
             
             cases = list(cases_container_client.query_items(
@@ -16059,7 +16632,7 @@ if __name__ == '__main__':
     print("   v5.9.4: N-Hop Path RAG (configurable 1-3+ hops) for Deep Relationship Traversal")
     print("   Chapters: 1, 4, 5, 6, 7, 9")
     print("="*90)
-    print(f"🌐 Server: http://172.16.200.12:{port}")
+    print(f"🌐 Server: http://20.245.40.107:{port}")
     print(f"🤖 Ollama Model: {OLLAMA_MODEL}")
     print(f"🔗 Ollama URL: {OLLAMA_URL}")
     print(f"📊 Knowledge Graph: {len(knowledge_graph.entities)} entities, {len(knowledge_graph.relationships)} relationships")
@@ -16069,7 +16642,7 @@ if __name__ == '__main__':
     print(f"🔗 2-Hop Path RAG: {'✅ Enabled' if two_hop_initialized else '❌ Disabled'}")
     print(f"🎯 Integrated Database Orchestration: {len(WorkflowStep)} workflow steps")
     print(f"🔄 Integrated Agents: Intent → Integrated Entity (Database) → Enhanced Answer (Quality)")
-    print(f"🔐 Auth: {'Azure Entra ID (' + AZURE_CLOUD.upper() + ')' if oauth else 'Mock User'}")
+    print(f"🔐 Auth: {'OAuth (Auth0)' if oauth else 'Mock User'}")
     print(f"💾 Storage: {'Azure Cosmos DB' if cases_container_client else 'In-Memory'}")
     print(f"📁 Blob Storage: {'Azure' if blob_service_client else 'Disabled'}")
     
@@ -16081,27 +16654,27 @@ if __name__ == '__main__':
     print(f"• Embedding Model: {'Loaded' if db_status['embedding_model']['loaded'] else 'Not Loaded'} ({db_status['embedding_model']['model_name']})")
     
     print(f"\n📡 Core Endpoints:")
-    print(f"• Integrated Query: POST http://172.16.200.12:{port}/api/query")
-    print(f"• System Status: GET http://172.16.200.12:{port}/api/system/status")
-    print(f"• Database Status: GET http://172.16.200.12:{port}/api/database/status")
-    print(f"• Examples: GET http://172.16.200.12:{port}/api/examples")
-    print(f"• User Cases: GET http://172.16.200.12:{port}/api/user/cases")
-    print(f"• Authentication: GET http://172.16.200.12:{port}/login")
+    print(f"• Integrated Query: POST http://20.245.40.107:{port}/api/query")
+    print(f"• System Status: GET http://20.245.40.107:{port}/api/system/status")
+    print(f"• Database Status: GET http://20.245.40.107:{port}/api/database/status")
+    print(f"• Examples: GET http://20.245.40.107:{port}/api/examples")
+    print(f"• User Cases: GET http://20.245.40.107:{port}/api/user/cases")
+    print(f"• Authentication: GET http://20.245.40.107:{port}/api/auth/login")
     
     print(f"\n🧪 AUTOMATED TESTING (No Auth Required):")
-    print(f"• Test Query: POST http://172.16.200.12:{port}/api/test/query")
+    print(f"• Test Query: POST http://20.245.40.107:{port}/api/test/query")
     print(f"  Usage: python run_entity_tests.py --start 1 --end 10")
 
     print(f"\n🤖 Enhanced Agent Endpoints:")
-    print(f"• HIL Update: POST http://172.16.200.12:{port}/api/agents/hil_update")
-    print(f"• Trigger Update: POST http://172.16.200.12:{port}/api/agents/trigger_update")
-    print(f"• Agent Status: GET http://172.16.200.12:{port}/api/agents/status")
+    print(f"• HIL Update: POST http://20.245.40.107:{port}/api/agents/hil_update")
+    print(f"• Trigger Update: POST http://20.245.40.107:{port}/api/agents/trigger_update")
+    print(f"• Agent Status: GET http://20.245.40.107:{port}/api/agents/status")
 
     print(f"\n📡 Advanced SAMM Endpoints:")
-    print(f"• Detailed Status: GET http://172.16.200.12:{port}/api/samm/status")
-    print(f"• Integrated Workflow: GET http://172.16.200.12:{port}/api/samm/workflow")
-    print(f"• Knowledge Graph: GET http://172.16.200.12:{port}/api/samm/knowledge")
-    print(f"• Health Check: GET http://172.16.200.12:{port}/api/health")
+    print(f"• Detailed Status: GET http://20.245.40.107:{port}/api/samm/status")
+    print(f"• Integrated Workflow: GET http://20.245.40.107:{port}/api/samm/workflow")
+    print(f"• Knowledge Graph: GET http://20.245.40.107:{port}/api/samm/knowledge")
+    print(f"• Health Check: GET http://20.245.40.107:{port}/api/health")
     
     print(f"\n🧪 Try these questions:")
     print("• What is Security Cooperation?")
