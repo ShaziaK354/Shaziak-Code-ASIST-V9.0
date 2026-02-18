@@ -1,6 +1,30 @@
 """
-SAMM Agent Application - Version 5.9.18
+SAMM Agent Application - Version 5.9.19
 =======================================
+
+CHANGELOG v5.9.19 (13-Feb-2026):
+- FEATURE: FORMATTING AGENT (Agent #6) - ASIST Architecture Alignment
+  * NEW: FormattingAgent class - standalone Agent #6 per AGORA framework
+  * 7 Core Response Templates:
+    1. Policy Quotation (Paragraph Format)
+    2. Step-by-Step Procedure
+    3. Bulletized Overview
+    4. Mixed Format (Paragraph + List)
+    5. Q&A Style
+    6. Conditional / Decision Tree
+    7. Escalation / Need More Information
+  * 29 Intent-to-Template Mappings (from ASIST Formatting Framework)
+  * LLM-powered response restructuring using few-shot examples
+  * Confidence scoring with detailed breakdown metadata
+  * Rules Engine interface (load_rules/set_rules) for AGORA Guardrails
+  * New WorkflowStep.FORMAT between ANSWER and COMPLETE
+  * FormattedResponsePackage structured output
+  * Formatting logic extracted from EnhancedAnswerAgent (no duplication)
+  * Extracted: add_samm_links, acronym expansion, terminology fixes, citations
+  * Backward compatible - graceful fallback if FormattingAgent fails
+  * New fields in AgentState: formatting_info
+  * New in process_query response: formatting_metadata
+  * New in get_agent_status: formatting_agent status
 
 CHANGELOG v5.9.18 (27-Jan-2026):
 - FEATURE: FINE-TUNED SAMM MODEL INTEGRATION
@@ -1298,13 +1322,14 @@ COSMOS_GREMLIN_CONFIG = {
 }
 
 # Vector Database Configuration
-VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "/opt/asist/backend_v8_shazia_v2/samm_all_chapters_db")
+#VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "/opt/asist/backend_v8_shazia_v2/samm_all_chapters_db")
+VECTOR_DB_PATH = "C:\\Users\\ShaziaKashif\\ASIST Project\\ASIST2.1\\ASIST_V2.1\\backend\\Chromadb\\samm_all_chapters_db"
 #VECTOR_DB_PATH = "C:\\Users\\TomLorenc\\Downloads\\ASIST_DEV\\ASIST_DEV\backend\\vector_db"
 #VECTOR_DB_PATH = "C:\\Projects\\5_1\\ASIST_V5.0-main\backend\\vector_db"
 #VECTOR_DB_PATH = "O:\\Assist Versions\backend\\vector_db"
 #VECTOR_DB_PATH = "O:\\Assist Versions\\backend\\Chromadb\\samm_all_chapters_db"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-VECTOR_DB_COLLECTION = os.getenv("VECTOR_DB_COLLECTION", "samm_all_chapters")
+VECTOR_DB_COLLECTION = "samm_all_chapters"
 
 # =============================================================================
 # v5.9.12: SAMM_CONTEXT FOR SMART SEARCH (ENHANCED SEMANTIC MAPPING)
@@ -3972,6 +3997,7 @@ class AgentState(TypedDict):
     intent_info: Optional[Dict[str, Any]]
     entity_info: Optional[Dict[str, Any]]
     answer: Optional[str]
+    formatting_info: Optional[Dict[str, Any]]  # v5.9.19: FormattingAgent output
     execution_steps: List[str]
     start_time: float
     current_step: str
@@ -4560,6 +4586,7 @@ class WorkflowStep(Enum):
     INTENT = "analyze_intent"
     ENTITY = "extract_entities"
     ANSWER = "generate_answer"
+    FORMAT = "format_response"      # v5.9.19: Agent #6 - Formatting & Confidence Scoring
     COMPLETE = "complete"
     ERROR = "error"
 
@@ -11234,22 +11261,25 @@ class EnhancedAnswerAgent:
             # Step 5: Generate answer with validation passes
             answer = self._generate_with_validation(prompt, system_msg, intent_info)
             
-            # Step 6: Apply post-processing enhancements
-            enhanced_answer = self._enhance_answer_quality(answer, intent_info, entity_info)
+            # v5.9.19: Steps 6-8 (formatting, quality scoring, SAMM links) are now
+            # handled by FormattingAgent (Agent #6) in the orchestration pipeline.
+            # The raw answer is returned here; formatting happens in WorkflowStep.FORMAT.
+            # 
+            # Legacy methods (_enhance_answer_quality, _validate_and_score_answer, 
+            # add_samm_links) are preserved for backward compatibility if generate_answer
+            # is called directly outside the pipeline.
             
-            # Step 7: Final validation and scoring
-            final_answer = self._validate_and_score_answer(enhanced_answer, intent, query)
-            
-            # Step 8: Add clickable links for SAMM Figures and Tables
-            final_answer = add_samm_links(final_answer)
+            # v5.9.19: Only do basic validation, skip formatting (Agent #6 handles it)
+            if not answer or len(answer) < 20:
+                answer = "I apologize, but I was unable to generate a complete answer. Please try rephrasing your question."
             
             # ADD: Final answer verification
-            print(f"[AnswerAgent] ✅ FINAL ANSWER GENERATED:")
-            print(f"[AnswerAgent]   Length: {len(final_answer)} chars")
-            print(f"[AnswerAgent]   Preview: {final_answer[:200]}...")
-            print(f"[AnswerAgent]   Has content: {bool(final_answer and len(final_answer) > 20)}")
+            print(f"[AnswerAgent] ✅ RAW ANSWER GENERATED (formatting delegated to Agent #6):")
+            print(f"[AnswerAgent]   Length: {len(answer)} chars")
+            print(f"[AnswerAgent]   Preview: {answer[:200]}...")
+            print(f"[AnswerAgent]   Has content: {bool(answer and len(answer) > 20)}")
             
-            return final_answer
+            return answer
             
         except Exception as e:
             print(f"[AnswerAgent] Error during answer generation: {e}")
@@ -12643,6 +12673,980 @@ def extract_financial_records_from_documents(documents_context: List) -> List[Di
 
 
 
+# =============================================================================
+# v5.9.19: FORMATTING AGENT (Agent #6) - ASIST Architecture Alignment
+# =============================================================================
+# Per ASIST Intelligence Component architecture (AGORA Framework):
+# Agent #4 (Response Synthesis) → Agent #0 routes to Agent #6 →
+# Agent #6 formats + scores → Agent #5 (Symbolic Validation)
+# =============================================================================
+
+class FormattingAgent:
+    """
+    Agent #6 - Formatting & Confidence Scoring Agent
+    
+    Aligned with ASIST Intelligence Component architecture (AGORA Framework).
+    Receives raw response from Agent #4 (via Orchestrator), applies intent-based
+    template formatting, SAMM-specific enhancements, and confidence scoring.
+    Outputs a FormattedResponsePackage for Agent #5 (Symbolic Validation).
+    
+    Features:
+    - 7 Core Response Templates (from ASIST Formatting Framework)
+    - 29 Intent-to-Template Mappings
+    - LLM-powered response restructuring with few-shot examples
+    - SAMM-specific formatting (links, acronyms, terminology, citations)
+    - Composite confidence scoring with breakdown metadata
+    - Rules Engine interface for AGORA Deterministic Guardrails
+    - Human-in-Loop (HIL) feedback and trigger update support
+    """
+    
+    def __init__(self):
+        """Initialize the Formatting Agent with templates, mappings, and scoring config"""
+        print("[FormattingAgent] Initializing Agent #6 - Formatting & Confidence Scoring...")
+        
+        # HIL and learning systems
+        self.hil_feedback_data = []
+        self.trigger_updates = []
+        
+        # External rules from Rules Engine (AGORA Guardrails)
+        self.external_rules = {}
+        
+        # =====================================================================
+        # 7 CORE RESPONSE TEMPLATES (from ASIST Formatting Framework)
+        # =====================================================================
+        self.response_templates = {
+            "policy_quotation": {
+                "id": 1,
+                "name": "Policy Quotation (Paragraph Format)",
+                "use_case": "Citing official policy text requiring full-paragraph clarity",
+                "structure": [
+                    "Here is the relevant policy information:",
+                    "[Quoted policy text in full sentences, in paragraph form.]",
+                    "Summary: [1-2 sentence clarification]"
+                ],
+                "required_elements": ["policy_citation", "paragraph_text", "summary"],
+                "formatting_rules": {
+                    "style": "paragraph",
+                    "citation_required": True,
+                    "summary_required": True,
+                    "max_paragraphs": 4
+                }
+            },
+            "step_by_step": {
+                "id": 2,
+                "name": "Step-by-Step Procedure",
+                "use_case": "Instructions requiring sequential actions",
+                "structure": [
+                    "To complete this process, follow these steps:",
+                    "1. Step one...",
+                    "2. Step two...",
+                    "3. Step three...",
+                    "Note: [Optional clarification]"
+                ],
+                "required_elements": ["intro_sentence", "numbered_steps", "optional_note"],
+                "formatting_rules": {
+                    "style": "numbered_list",
+                    "min_steps": 2,
+                    "max_steps": 10,
+                    "note_optional": True
+                }
+            },
+            "bulletized_overview": {
+                "id": 3,
+                "name": "Bulletized Overview",
+                "use_case": "Documentation, lists, or key point summaries",
+                "structure": [
+                    "Key points from the policy:",
+                    "• Point one",
+                    "• Point two",
+                    "• Point three"
+                ],
+                "required_elements": ["intro_sentence", "bullet_points"],
+                "formatting_rules": {
+                    "style": "bullet_list",
+                    "min_bullets": 2,
+                    "max_bullets": 20,
+                    "intro_paragraph_allowed": True
+                }
+            },
+            "mixed_format": {
+                "id": 4,
+                "name": "Mixed Format (Paragraph + List)",
+                "use_case": "Both context and structured points needed",
+                "structure": [
+                    "Here's how this applies to your situation:",
+                    "[Short paragraph]",
+                    "The policy outlines the following points:",
+                    "• Item one",
+                    "• Item two",
+                    "• Item three"
+                ],
+                "required_elements": ["context_paragraph", "transition_sentence", "bullet_points"],
+                "formatting_rules": {
+                    "style": "mixed",
+                    "paragraph_first": True,
+                    "list_follows": True
+                }
+            },
+            "qa_style": {
+                "id": 5,
+                "name": "Q&A Style",
+                "use_case": "Direct factual questions requiring concise answers",
+                "structure": [
+                    "**Question:** [Restatement of the user's question, if appropriate]",
+                    "**Answer:** [Concise, direct answer]",
+                    "Reference: [Optional policy snippet]"
+                ],
+                "required_elements": ["answer_text"],
+                "formatting_rules": {
+                    "style": "qa",
+                    "question_restatement_optional": True,
+                    "concise": True,
+                    "reference_optional": True
+                }
+            },
+            "conditional_decision_tree": {
+                "id": 6,
+                "name": "Conditional / Decision Tree",
+                "use_case": "Guidance depending on conditions or branching logic",
+                "structure": [
+                    "Here's the policy basis for these conditions:",
+                    "Your next steps depend on your situation:",
+                    "• If X → Do A",
+                    "• If Y → Do B",
+                    "• If Z → Contact [role/team]",
+                    "[Short reference text]"
+                ],
+                "required_elements": ["policy_basis", "conditions_list", "reference"],
+                "formatting_rules": {
+                    "style": "decision_tree",
+                    "min_conditions": 2,
+                    "arrow_notation": True,
+                    "policy_intro_required": True
+                }
+            },
+            "escalation": {
+                "id": 7,
+                "name": "Escalation / Need More Information",
+                "use_case": "Additional details required to proceed",
+                "structure": [
+                    "I can help further, but I need a bit more information. Please provide:",
+                    "• Detail 1",
+                    "• Detail 2",
+                    "• Detail 3",
+                    "Or, if this situation is urgent, you may escalate to [team/contact]."
+                ],
+                "required_elements": ["request_for_info", "detail_list", "escalation_option"],
+                "formatting_rules": {
+                    "style": "escalation",
+                    "min_details": 1,
+                    "escalation_contact_required": True
+                }
+            }
+        }
+        
+        # =====================================================================
+        # 29 INTENT-TO-TEMPLATE MAPPINGS (from ASIST Formatting Framework)
+        # =====================================================================
+        self.intent_template_mapping = {
+            # Knowledge & Conceptual
+            "definition":       "policy_quotation",
+            "distinction":      "bulletized_overview",
+            "authority":        "policy_quotation",
+            "organization":     "bulletized_overview",
+            "factual":          "qa_style",
+            "relationship":     "bulletized_overview",
+            "general":          "mixed_format",
+            "scope":            "policy_quotation",
+            "purpose":          "policy_quotation",
+            # Process & Workflow
+            "approval":         "step_by_step",
+            "review":           "step_by_step",
+            "decision":         "conditional_decision_tree",
+            "process":          "step_by_step",
+            "implementation":   "mixed_format",
+            "prerequisite":     "bulletized_overview",
+            "documentation":    "bulletized_overview",
+            # Financial
+            "financial":        "mixed_format",
+            "budget":           "step_by_step",
+            "payment":          "step_by_step",
+            "pricing":          "bulletized_overview",
+            "reimbursement":    "step_by_step",
+            "funding":          "mixed_format",
+            # Timeline & Status
+            "timeline":         "bulletized_overview",
+            "milestone":        "bulletized_overview",
+            "status":           "qa_style",
+            "tracking":         "step_by_step",
+            # Compliance & Legal
+            "compliance":       "policy_quotation",
+            "audit":            "mixed_format",
+            "legal":            "policy_quotation",
+            "reporting":        "step_by_step",
+            # Additional intents from existing system
+            "verification":     "conditional_decision_tree",
+            "list":             "bulletized_overview",
+            "explanation":      "mixed_format",
+            "eligibility":      "conditional_decision_tree",
+        }
+        
+        # =====================================================================
+        # FEW-SHOT EXAMPLES FOR LLM REFORMATTING (from ASIST Framework Doc)
+        # =====================================================================
+        self.few_shot_examples = {
+            "step_by_step": {
+                "question": "I am developing a case for MIDS JTRS terminals and the outside coordination and approval process is taking longer than expected, delaying my case submission. What should I do?",
+                "intent": "Process",
+                "example": """According to SAMM Chapter 5, Section C5.4.2.1, delays in case development should be documented using a Case Development Extenuating Factor (CDEF). Follow the steps below:
+
+1. Determine whether the delay will prevent meeting the development standard
+If the extended coordination period impacts your ability to meet the case development timeline from Table C5.T6, a CDEF must be applied.
+
+2. Enter a CDEF reason code in DSAMS
+The Implementing Agency (IA) must work with the policy authority to record the appropriate CDEF code when an expected delay occurs.
+
+3. Provide an estimated number of delay days
+When adding the CDEF, enter the estimated number of days required to resolve the issue.
+
+4. Update DSAMS once the delay is resolved
+After the external coordination is completed, the IA must return to DSAMS and enter the actual number of days the issue required.
+
+5. Reference the list of CDEFs if needed
+A full list of authorized CDEFs is provided in Figure C5.F13."""
+            },
+            "bulletized_overview": {
+                "question": "What specific information must be included in the 'Description of the Defense Articles or Services' section of a Letter of Request?",
+                "intent": "Documentation",
+                "example": """Per SAMM Chapter 5 requirements, an LOR must identify the requested defense articles or services in sufficient detail for the U.S. Government to prepare an accurate cost estimate.
+
+If requesting a defense article:
+
+Basic Identification
+• Defense article nomenclature and detailed description
+• Whether the item is a current DoD weapon system or end item
+
+Manufacturer and Technical Details
+• Manufacturer name
+• Manufacturer catalog
+• Order number
+• Item name, description, color, size
+
+Additional Required Information
+• Quantity
+• Intended end use (mission usage requirements)
+• Whether the request provides a new capability"""
+            },
+            "conditional_decision_tree": {
+                "question": "Do I need a CTA for the case I am developing?",
+                "intent": "Decision",
+                "example": """According to SAMM Chapter 5, Section C5.1.4, a Country Team Assessment (CTA) presents the coordinated position of senior U.S. Embassy leadership regarding a proposed sale.
+
+A CTA Is Required If ANY of the Following Conditions Apply:
+• If the LOR is likely to result in a Congressional Notification (CN) pursuant to AECA Section 36(b) based on its cost
+• If the case would introduce a new capability to the country, regardless of cost
+• If the request includes defense articles or services of a sensitive nature (see SAMM C5.1.4.2)
+• If DSCA (IOPS/REX) specifically requests a CTA
+
+If NONE of the Above Conditions Apply, a CTA is not required for the case."""
+            },
+            "policy_quotation": {
+                "question": "I got a request for a Price and Availability. What is that?",
+                "intent": "Definition",
+                "example": """According to SAMM Section 5.3 and its associated subsections, Price and Availability (P&A) data are requested when a partner nation or international organization requires preliminary information for planning purposes or in anticipation of a potential Foreign Military Sales (FMS) purchase. P&A data provide rough order of magnitude estimates of the cost and availability of U.S. defense articles or services.
+
+P&A estimates are intended to be sufficiently accurate for high-level planning, but they must not be used for budgeting purposes and do not constitute a commitment by the U.S. Government.
+
+Additional guidance on P&A data can be found in SAMM Sections C5.3.2 through C5.3.6 and Table C5.T5."""
+            },
+            "qa_style": {
+                "question": "Who is the implementing agency for the Navy?",
+                "intent": "Factual",
+                "example": """According to SAMM Table C1.T1, the Implementing Agency (IA) for the Navy is the Navy International Programs Office (NIPO)."""
+            },
+            "escalation": {
+                "question": "I need help with Case Development.",
+                "intent": "Process",
+                "example": """I can help further regarding the Case Development Process, but I need a bit more information. Please provide:
+
+Information on where you are in the process. For example, have you just received the LOR and quicklook request in CDAT? Have you received the DSAMS Tasking? Do you have Pricing required for data entry into DSAMS?
+
+Do you need assistance just understanding all the requirements for developing a case, or do you need help with something specific like DSAMS data entry?
+
+If you can provide the above information, I can help direct you or, if this situation is urgent, you may escalate to Travis Eiswerth (travis.eiswerth@mbc360.com) as an FMS SME."""
+            },
+            "mixed_format": {
+                "question": "How does the congressional notification process work for FMS cases?",
+                "intent": "General",
+                "example": """According to SAMM Chapter 5, Section C5.5.3.1, by law a 36(b)(1) Congressional Notification (CN) is required when a Letter of Offer and Acceptance (LOA) meets or exceeds specific dollar thresholds identified in Table C5.T13. These thresholds vary based on the purchaser.
+
+Applicable 36(b) Thresholds (per Table C5.T13):
+
+For NATO Countries (including France), Australia, Israel, Japan, Republic of Korea, and New Zealand:
+• Major Defense Equipment (MDE): $25M
+• Any Articles, Services, or Both (Total Case Value): $100M
+• Design and Construction Services: $300M
+
+For All Other Countries and International Organizations:
+• Major Defense Equipment (MDE): $14M
+• Any Articles, Services, or Both (Total Case Value): $50M
+• Design and Construction Services: $200M"""
+            }
+        }
+        
+        # =====================================================================
+        # SAMM-SPECIFIC FORMATTING CONFIG (extracted from EnhancedAnswerAgent)
+        # =====================================================================
+        self.quality_patterns = {
+            "section_references": r"(C\d+\.\d+(?:\.\d+)*|Table\s+C\d+\.T\d+[A-Za-z]?|Figure\s+C\d+\.F\d+[A-Za-z]?)",
+            "acronym_detection": r"\b([A-Z]{2,})\b",
+            "authority_mentions": r"(Title \d+|[A-Z]+ Act)",
+            "incomplete_sentences": r"[a-z]\s*$"
+        }
+        
+        self.quality_weights = {
+            "section_citation": 0.20,
+            "acronym_expansion": 0.10,
+            "answer_completeness": 0.20,
+            "samm_terminology": 0.15,
+            "structure_adherence": 0.15,
+            "template_match": 0.20      # NEW: How well response matches template
+        }
+        
+        self.terminology_fixes = {
+            "security cooperation": "Security Cooperation",
+            "security assistance": "Security Assistance",
+            "foreign assistance act": "Foreign Assistance Act",
+            "arms export control act": "Arms Export Control Act",
+            "defense security cooperation agency": "Defense Security Cooperation Agency",
+            "foreign military sales": "Foreign Military Sales",
+            "letter of request": "Letter of Request",
+            "letter of offer and acceptance": "Letter of Offer and Acceptance",
+            "implementing agency": "Implementing Agency",
+            "country team assessment": "Country Team Assessment",
+            "congressional notification": "Congressional Notification",
+            "major defense equipment": "Major Defense Equipment",
+        }
+        
+        # Formatting statistics for tracking
+        self.formatting_stats = {
+            "total_formatted": 0,
+            "templates_used": {},
+            "avg_confidence": 0.0,
+            "llm_reformat_count": 0,
+            "fallback_count": 0
+        }
+        
+        print(f"[FormattingAgent] ✅ Initialized with {len(self.response_templates)} templates, "
+              f"{len(self.intent_template_mapping)} intent mappings, "
+              f"{len(self.few_shot_examples)} few-shot examples")
+    
+    # =========================================================================
+    # CORE PUBLIC METHODS
+    # =========================================================================
+    
+    def format_response(self, raw_answer: str, intent_info: Dict, entity_info: Dict,
+                       query: str = "") -> Dict[str, Any]:
+        """
+        Main entry point: Format raw LLM response using intent-based template.
+        
+        Args:
+            raw_answer: Raw text from Agent #4 (Response Synthesis / EnhancedAnswerAgent)
+            intent_info: Intent detection output from Agent #1
+            entity_info: Entity extraction output from Agent #2/#3
+            query: Original user query (for context)
+            
+        Returns:
+            FormattedResponsePackage dict with all formatting metadata
+        """
+        print(f"\n[FormattingAgent] ═══════════════════════════════════════════")
+        print(f"[FormattingAgent] 🎨 Starting response formatting...")
+        print(f"[FormattingAgent]   Query: {query[:80]}...")
+        print(f"[FormattingAgent]   Raw answer length: {len(raw_answer)} chars")
+        
+        format_start = time.time()
+        
+        try:
+            # Skip formatting for very short/error answers
+            if not raw_answer or len(raw_answer) < 30 or "Error" in raw_answer[:50]:
+                print(f"[FormattingAgent] ⚠️ Skipping formatting - answer too short or error")
+                return self._create_passthrough_package(raw_answer, intent_info, "skipped_short")
+            
+            intent = intent_info.get("intent", "general") if intent_info else "general"
+            
+            # Step 1: Select template based on intent
+            template_key = self.select_template(intent)
+            template = self.response_templates.get(template_key, self.response_templates["mixed_format"])
+            print(f"[FormattingAgent]   Intent: {intent} → Template: {template['name']}")
+            
+            # Step 2: Restructure response using LLM (with few-shot examples)
+            formatted_answer = self._restructure_with_llm(raw_answer, template_key, intent, query)
+            
+            # Step 3: Apply SAMM-specific formatting enhancements
+            formatted_answer = self._apply_samm_formatting(formatted_answer, entity_info)
+            
+            # Step 4: Apply clickable SAMM links (Figures + Tables)
+            formatted_answer = add_samm_links(formatted_answer)
+            
+            # Step 5: Calculate confidence score
+            confidence_result = self.calculate_confidence(formatted_answer, intent, template_key)
+            
+            # Step 6: Build FormattedResponsePackage
+            format_time = round(time.time() - format_start, 2)
+            
+            package = {
+                "formatted_response": formatted_answer,
+                "template_used": template['name'],
+                "template_key": template_key,
+                "confidence_score": confidence_result["overall_score"],
+                "confidence_breakdown": confidence_result["breakdown"],
+                "applied_rules": self._get_applied_rules(template_key),
+                "citations": self._extract_citations(formatted_answer),
+                "formatting_metadata": {
+                    "intent_received": intent,
+                    "template_selected": template_key,
+                    "original_length": len(raw_answer),
+                    "formatted_length": len(formatted_answer),
+                    "links_added": formatted_answer.count("](https://samm.dsca.mil"),
+                    "format_time_seconds": format_time,
+                    "used_llm_reformat": True
+                },
+                "intent_received": intent
+            }
+            
+            # Update stats
+            self.formatting_stats["total_formatted"] += 1
+            self.formatting_stats["templates_used"][template_key] = \
+                self.formatting_stats["templates_used"].get(template_key, 0) + 1
+            self.formatting_stats["llm_reformat_count"] += 1
+            
+            print(f"[FormattingAgent] ✅ Formatting complete in {format_time}s")
+            print(f"[FormattingAgent]   Template: {template['name']}")
+            print(f"[FormattingAgent]   Confidence: {confidence_result['overall_score']:.2f}")
+            print(f"[FormattingAgent]   Output length: {len(formatted_answer)} chars")
+            print(f"[FormattingAgent] ═══════════════════════════════════════════\n")
+            
+            return package
+            
+        except Exception as e:
+            print(f"[FormattingAgent] ❌ Error during formatting: {e}")
+            import traceback
+            traceback.print_exc()
+            self.formatting_stats["fallback_count"] += 1
+            # Graceful fallback: return raw answer with SAMM links applied
+            fallback_answer = add_samm_links(raw_answer)
+            return self._create_passthrough_package(fallback_answer, intent_info, f"error: {str(e)}")
+    
+    def select_template(self, intent: str) -> str:
+        """
+        Select the appropriate response template based on detected intent.
+        Uses the 29-intent mapping table from ASIST Formatting Framework.
+        
+        Args:
+            intent: Detected intent string from IntentAgent
+            
+        Returns:
+            Template key string
+        """
+        # Check external rules override first
+        if self.external_rules.get("template_overrides", {}).get(intent):
+            override = self.external_rules["template_overrides"][intent]
+            print(f"[FormattingAgent] 🔧 Rules override: {intent} → {override}")
+            return override
+        
+        # Use standard mapping
+        template_key = self.intent_template_mapping.get(intent, "mixed_format")
+        
+        # Normalize some edge cases from the existing IntentAgent
+        intent_lower = intent.lower()
+        if intent_lower in self.intent_template_mapping:
+            template_key = self.intent_template_mapping[intent_lower]
+        
+        return template_key
+    
+    def calculate_confidence(self, answer: str, intent: str, template_key: str) -> Dict[str, Any]:
+        """
+        Calculate composite confidence score with detailed breakdown.
+        
+        Returns:
+            Dict with overall_score (0.0-1.0) and breakdown dict
+        """
+        try:
+            breakdown = {}
+            
+            # 1. Section citation score
+            has_citations = bool(re.search(self.quality_patterns["section_references"], answer))
+            breakdown["section_citation"] = 1.0 if has_citations else 0.0
+            
+            # 2. Acronym expansion score
+            acronyms_found = set(re.findall(self.quality_patterns["acronym_detection"], answer))
+            if acronyms_found:
+                expanded = sum(1 for a in acronyms_found if f"{a})" in answer or f"({a})" in answer)
+                breakdown["acronym_expansion"] = min(1.0, expanded / max(len(acronyms_found), 1))
+            else:
+                breakdown["acronym_expansion"] = 1.0  # No acronyms to expand
+            
+            # 3. Answer completeness (length-based)
+            length = len(answer)
+            if 200 <= length <= 3000:
+                breakdown["answer_completeness"] = 1.0
+            elif length < 200:
+                breakdown["answer_completeness"] = max(0.3, length / 200)
+            else:
+                breakdown["answer_completeness"] = max(0.5, 1.0 - (length - 3000) / 5000)
+            
+            # 4. SAMM terminology score
+            samm_terms = ["Security Cooperation", "Security Assistance", "SAMM", 
+                         "Title 10", "Title 22", "DSCA", "FMS", "LOA", "LOR"]
+            terms_used = sum(1 for t in samm_terms if t in answer)
+            breakdown["samm_terminology"] = min(1.0, terms_used / 3)
+            
+            # 5. Structure adherence score
+            template = self.response_templates.get(template_key, {})
+            required = template.get("required_elements", [])
+            if required:
+                elements_found = 0
+                for element in required:
+                    keywords = element.replace("_", " ").split()
+                    if any(kw.lower() in answer.lower() for kw in keywords):
+                        elements_found += 1
+                breakdown["structure_adherence"] = elements_found / len(required)
+            else:
+                breakdown["structure_adherence"] = 0.5
+            
+            # 6. Template match score (structural analysis)
+            breakdown["template_match"] = self._score_template_match(answer, template_key)
+            
+            # Calculate weighted overall score
+            overall = sum(
+                breakdown.get(key, 0) * weight
+                for key, weight in self.quality_weights.items()
+                if key in breakdown
+            )
+            overall = min(1.0, overall)
+            
+            return {
+                "overall_score": round(overall, 3),
+                "breakdown": {k: round(v, 3) for k, v in breakdown.items()}
+            }
+            
+        except Exception as e:
+            print(f"[FormattingAgent] Error calculating confidence: {e}")
+            return {"overall_score": 0.5, "breakdown": {"error": str(e)}}
+    
+    # =========================================================================
+    # RULES ENGINE INTERFACE (for AGORA Deterministic Guardrails)
+    # =========================================================================
+    
+    def load_rules(self, rules: Dict[str, Any]) -> bool:
+        """
+        Load external formatting rules from Rules Engine (Prolog/AGORA Guardrails).
+        
+        Args:
+            rules: Dict containing template_overrides, required_elements overrides,
+                   formatting constraints, etc.
+                   
+        Returns:
+            True if rules loaded successfully
+        """
+        try:
+            self.external_rules = rules
+            print(f"[FormattingAgent] 🔧 Loaded {len(rules)} external rules")
+            
+            # Apply template overrides if provided
+            if "template_overrides" in rules:
+                for intent, template in rules["template_overrides"].items():
+                    if template in self.response_templates:
+                        print(f"[FormattingAgent]   Override: {intent} → {template}")
+                    else:
+                        print(f"[FormattingAgent]   ⚠️ Unknown template in override: {template}")
+            
+            # Apply required_elements overrides
+            if "required_elements" in rules:
+                for template_key, elements in rules["required_elements"].items():
+                    if template_key in self.response_templates:
+                        self.response_templates[template_key]["required_elements"] = elements
+                        print(f"[FormattingAgent]   Updated required elements for: {template_key}")
+            
+            return True
+        except Exception as e:
+            print(f"[FormattingAgent] ❌ Error loading rules: {e}")
+            return False
+    
+    def set_rules(self, rules: Dict[str, Any]) -> bool:
+        """Alias for load_rules (convenience method)"""
+        return self.load_rules(rules)
+    
+    def clear_rules(self):
+        """Clear all external rules, revert to defaults"""
+        self.external_rules = {}
+        print("[FormattingAgent] 🔧 External rules cleared")
+    
+    # =========================================================================
+    # HIL (Human-in-Loop) AND TRIGGER UPDATE SUPPORT
+    # =========================================================================
+    
+    def update_from_hil(self, feedback_data: Dict) -> bool:
+        """Update formatting preferences from human-in-the-loop feedback"""
+        try:
+            self.hil_feedback_data.append({
+                "timestamp": time.time(),
+                "feedback": feedback_data
+            })
+            
+            # If feedback includes template preference, update mapping
+            if "intent" in feedback_data and "preferred_template" in feedback_data:
+                intent = feedback_data["intent"]
+                preferred = feedback_data["preferred_template"]
+                if preferred in self.response_templates:
+                    self.intent_template_mapping[intent] = preferred
+                    print(f"[FormattingAgent] HIL: Updated {intent} → {preferred}")
+            
+            return True
+        except Exception as e:
+            print(f"[FormattingAgent] HIL error: {e}")
+            return False
+    
+    def update_from_trigger(self, trigger_data: Dict) -> bool:
+        """Update from trigger-based updates (new intents, templates, etc.)"""
+        try:
+            self.trigger_updates.append({
+                "timestamp": time.time(),
+                "trigger": trigger_data
+            })
+            
+            # If trigger includes new intent mapping
+            if "new_mapping" in trigger_data:
+                for intent, template in trigger_data["new_mapping"].items():
+                    if template in self.response_templates:
+                        self.intent_template_mapping[intent] = template
+                        print(f"[FormattingAgent] Trigger: Added mapping {intent} → {template}")
+            
+            return True
+        except Exception as e:
+            print(f"[FormattingAgent] Trigger error: {e}")
+            return False
+    
+    # =========================================================================
+    # PRIVATE: LLM-POWERED RESTRUCTURING
+    # =========================================================================
+    
+    def _restructure_with_llm(self, raw_answer: str, template_key: str, 
+                               intent: str, query: str) -> str:
+        """
+        Use LLM to restructure raw response into the selected template format.
+        Uses few-shot examples from the ASIST Formatting Framework.
+        """
+        try:
+            # Get the few-shot example for this template
+            example = self.few_shot_examples.get(template_key, {})
+            template = self.response_templates.get(template_key, {})
+            
+            # Build the reformatting system message
+            system_msg = self._build_reformat_system_message(template_key, template, example)
+            
+            # Build the reformatting prompt
+            prompt = self._build_reformat_prompt(raw_answer, template_key, template, query, intent)
+            
+            # Call LLM for reformatting
+            print(f"[FormattingAgent] 🤖 Calling LLM for {template_key} reformatting...")
+            reformatted = call_ollama_enhanced(prompt, system_msg, temperature=0.1)
+            
+            # Validate the reformatted output
+            if reformatted and len(reformatted) > 30 and "Error" not in reformatted[:50]:
+                print(f"[FormattingAgent] ✅ LLM reformatting successful ({len(reformatted)} chars)")
+                return reformatted
+            else:
+                print(f"[FormattingAgent] ⚠️ LLM reformat output insufficient, using raw answer")
+                return raw_answer
+                
+        except Exception as e:
+            print(f"[FormattingAgent] ❌ LLM restructuring failed: {e}")
+            return raw_answer  # Graceful fallback
+    
+    def _build_reformat_system_message(self, template_key: str, template: Dict, 
+                                        example: Dict) -> str:
+        """Build system message for LLM reformatting call"""
+        
+        template_name = template.get("name", template_key)
+        structure = "\n".join(template.get("structure", []))
+        
+        system_msg = f"""You are the ASIST Formatting Agent. Your job is to reformat AI responses into a specific template structure.
+
+TEMPLATE: {template_name}
+USE CASE: {template.get('use_case', '')}
+
+TEMPLATE STRUCTURE:
+{structure}
+
+RULES:
+1. PRESERVE all factual content, SAMM references, section numbers, and policy citations from the original answer.
+2. DO NOT add new information that was not in the original answer.
+3. DO NOT remove any SAMM section references (like C5.1.4, Table C5.T13, Figure C5.F14).
+4. Restructure the response to match the template format above.
+5. Keep the tone professional and consistent with SAMM documentation style.
+6. Ensure all acronyms used in the original are preserved.
+7. If the original answer mentions specific dollar amounts, thresholds, or criteria, preserve them exactly."""
+
+        # Add few-shot example if available
+        if example:
+            system_msg += f"""
+
+EXAMPLE:
+Question: {example.get('question', '')}
+Intent: {example.get('intent', '')}
+Formatted Answer:
+{example.get('example', '')}"""
+        
+        return system_msg
+    
+    def _build_reformat_prompt(self, raw_answer: str, template_key: str, 
+                                template: Dict, query: str, intent: str) -> str:
+        """Build the reformatting prompt for the LLM"""
+        
+        return f"""Reformat the following AI response into the "{template.get('name', template_key)}" template format.
+
+ORIGINAL QUERY: {query}
+DETECTED INTENT: {intent}
+
+ORIGINAL RESPONSE TO REFORMAT:
+{raw_answer}
+
+INSTRUCTIONS:
+- Restructure into the {template.get('name', template_key)} format
+- Preserve ALL factual information, citations, section references, and policy details
+- Do NOT add information that is not in the original response
+- Output ONLY the reformatted response, nothing else"""
+    
+    # =========================================================================
+    # PRIVATE: SAMM-SPECIFIC FORMATTING (extracted from EnhancedAnswerAgent)
+    # =========================================================================
+    
+    def _apply_samm_formatting(self, answer: str, entity_info: Dict) -> str:
+        """
+        Apply SAMM-specific formatting enhancements.
+        Extracted from EnhancedAnswerAgent._enhance_answer_quality()
+        """
+        try:
+            enhanced = answer
+            
+            if len(answer) < 20 or "Error" in answer:
+                return answer
+            
+            # 1. Citation validation and injection
+            enhanced = self._validate_and_inject_citations(enhanced, entity_info)
+            
+            # 2. Acronym expansion (first occurrence only, limit to 5)
+            enhanced = self._expand_acronyms(enhanced)
+            
+            # 3. Terminology capitalization fixes
+            enhanced = self._fix_terminology(enhanced)
+            
+            return enhanced
+            
+        except Exception as e:
+            print(f"[FormattingAgent] Error in SAMM formatting: {e}")
+            return answer
+    
+    def _validate_and_inject_citations(self, answer: str, entity_info: Dict) -> str:
+        """Validate and inject SAMM citations if missing"""
+        try:
+            if not entity_info:
+                return answer
+            
+            citations = entity_info.get("citations", {})
+            if not citations:
+                return answer
+                
+            primary_citation = citations.get("primary")
+            references = citations.get("references", [])
+            
+            # Add primary citation if missing
+            if primary_citation and primary_citation not in answer:
+                answer += f"\n\n**Primary Citation:** SAMM {primary_citation}"
+                print(f"[FormattingAgent] Added missing primary citation: {primary_citation}")
+            
+            # Add references if none present
+            if references:
+                refs_in_answer = [ref for ref in references if ref in answer]
+                if len(refs_in_answer) == 0:
+                    answer += f"\n**References:** {', '.join(references[:2])}"
+                    print(f"[FormattingAgent] Added reference citations: {references[:2]}")
+            
+            # Append section references if completely missing
+            if not re.search(self.quality_patterns["section_references"], answer):
+                sections = []
+                if primary_citation:
+                    sections.append(primary_citation)
+                sections.extend([r for r in references if r])
+                if sections:
+                    answer += f"\n\nSAMM Section Citations: {', '.join(sections[:3])}"
+            
+            return answer
+            
+        except Exception as e:
+            print(f"[FormattingAgent] Citation injection error: {e}")
+            return answer
+    
+    def _expand_acronyms(self, answer: str) -> str:
+        """Expand SAMM acronyms (first occurrence only)"""
+        try:
+            # Use the comprehensive acronym dict from EnhancedAnswerAgent
+            # Access via the orchestrator's answer_agent at runtime
+            acronym_expansions = getattr(self, '_acronym_expansions_ref', {})
+            
+            acronyms_found = re.findall(self.quality_patterns["acronym_detection"], answer)
+            for acronym in list(set(acronyms_found))[:5]:
+                if (acronym in acronym_expansions and 
+                    acronym in answer and
+                    acronym_expansions[acronym] not in answer):
+                    answer = answer.replace(acronym, acronym_expansions[acronym], 1)
+            
+            return answer
+        except Exception as e:
+            print(f"[FormattingAgent] Acronym expansion error: {e}")
+            return answer
+    
+    def _fix_terminology(self, answer: str) -> str:
+        """Fix SAMM terminology capitalization"""
+        for incorrect, correct in self.terminology_fixes.items():
+            if incorrect in answer and correct not in answer:
+                answer = answer.replace(incorrect, correct)
+        return answer
+    
+    # =========================================================================
+    # PRIVATE: SCORING AND METADATA
+    # =========================================================================
+    
+    def _score_template_match(self, answer: str, template_key: str) -> float:
+        """Score how well the answer matches the expected template structure"""
+        try:
+            score = 0.5  # Base score
+            
+            if template_key == "step_by_step":
+                # Check for numbered steps
+                steps = re.findall(r'^\d+[\.\)]\s', answer, re.MULTILINE)
+                if len(steps) >= 2:
+                    score = min(1.0, 0.5 + len(steps) * 0.1)
+                    
+            elif template_key == "bulletized_overview":
+                # Check for bullet points
+                bullets = re.findall(r'^[\•\-\*]\s', answer, re.MULTILINE)
+                if len(bullets) >= 2:
+                    score = min(1.0, 0.5 + len(bullets) * 0.05)
+                    
+            elif template_key == "qa_style":
+                # Check for Q&A format markers
+                if "Answer:" in answer or "**Answer:**" in answer:
+                    score = 0.9
+                elif len(answer) < 500:  # Concise answers score well
+                    score = 0.7
+                    
+            elif template_key == "conditional_decision_tree":
+                # Check for conditional patterns
+                conditions = re.findall(r'(?:If|When|Where)\s+.+?→|(?:If|When|Where)\s+.+?[:–]', answer)
+                if conditions:
+                    score = min(1.0, 0.5 + len(conditions) * 0.15)
+                elif "if " in answer.lower() and ("then" in answer.lower() or "→" in answer):
+                    score = 0.7
+                    
+            elif template_key == "policy_quotation":
+                # Check for paragraph format with citations
+                paragraphs = answer.split("\n\n")
+                has_citation = bool(re.search(self.quality_patterns["section_references"], answer))
+                if len(paragraphs) >= 2 and has_citation:
+                    score = 0.8
+                elif has_citation:
+                    score = 0.7
+                    
+            elif template_key == "mixed_format":
+                # Check for both paragraphs and bullets/lists
+                has_paragraphs = len(answer.split("\n\n")) >= 2
+                has_bullets = bool(re.findall(r'^[\•\-\*]\s', answer, re.MULTILINE))
+                has_numbers = bool(re.findall(r'^\d+[\.\)]\s', answer, re.MULTILINE))
+                if has_paragraphs and (has_bullets or has_numbers):
+                    score = 0.9
+                elif has_paragraphs:
+                    score = 0.6
+                    
+            elif template_key == "escalation":
+                # Check for escalation markers
+                has_request = any(phrase in answer.lower() for phrase in 
+                               ["more information", "please provide", "need a bit more", "can you clarify"])
+                has_escalation = any(phrase in answer.lower() for phrase in 
+                                   ["escalate to", "contact", "urgent"])
+                if has_request and has_escalation:
+                    score = 0.9
+                elif has_request:
+                    score = 0.7
+            
+            return score
+            
+        except Exception as e:
+            return 0.5
+    
+    def _get_applied_rules(self, template_key: str) -> List[str]:
+        """Get list of formatting rules applied"""
+        rules = [
+            f"template:{template_key}",
+            "samm_links:figures_and_tables",
+            "citation_validation",
+            "terminology_fixes",
+        ]
+        if self.external_rules:
+            rules.append(f"external_rules:{len(self.external_rules)}")
+        return rules
+    
+    def _extract_citations(self, answer: str) -> List[str]:
+        """Extract all SAMM citations from formatted answer"""
+        citations = []
+        # Section references
+        citations.extend(re.findall(r'C\d+\.\d+(?:\.\d+)*', answer))
+        # Table references
+        citations.extend(re.findall(r'Table\s+C\d+\.T\d+[A-Za-z]?', answer))
+        # Figure references
+        citations.extend(re.findall(r'Figure\s+C\d+\.F\d+[A-Za-z]?', answer))
+        return list(set(citations))
+    
+    def _create_passthrough_package(self, answer: str, intent_info: Dict, 
+                                     reason: str) -> Dict[str, Any]:
+        """Create a passthrough package when formatting is skipped"""
+        intent = intent_info.get("intent", "general") if intent_info else "general"
+        return {
+            "formatted_response": answer,
+            "template_used": "passthrough",
+            "template_key": "passthrough",
+            "confidence_score": 0.5,
+            "confidence_breakdown": {"passthrough_reason": reason},
+            "applied_rules": ["passthrough"],
+            "citations": self._extract_citations(answer) if answer else [],
+            "formatting_metadata": {
+                "intent_received": intent,
+                "template_selected": "passthrough",
+                "original_length": len(answer) if answer else 0,
+                "formatted_length": len(answer) if answer else 0,
+                "links_added": 0,
+                "format_time_seconds": 0,
+                "used_llm_reformat": False,
+                "passthrough_reason": reason
+            },
+            "intent_received": intent
+        }
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get agent status for monitoring"""
+        return {
+            "type": "FormattingAgent",
+            "templates_count": len(self.response_templates),
+            "intent_mappings_count": len(self.intent_template_mapping),
+            "few_shot_examples_count": len(self.few_shot_examples),
+            "external_rules_loaded": len(self.external_rules) > 0,
+            "hil_feedback_count": len(self.hil_feedback_data),
+            "trigger_update_count": len(self.trigger_updates),
+            "formatting_stats": self.formatting_stats
+        }
+
+
 class SimpleStateOrchestrator:
     """Simple LangGraph-style state orchestration for integrated SAMM agents with HIL and trigger updates"""
     
@@ -12650,23 +13654,29 @@ class SimpleStateOrchestrator:
         self.intent_agent = IntentAgent()
         self.entity_agent = IntegratedEntityAgent(knowledge_graph, db_manager)
         self.answer_agent = EnhancedAnswerAgent()
+        self.formatting_agent = FormattingAgent()  # v5.9.19: Agent #6
         
-        # Define workflow graph
+        # v5.9.19: Share acronym expansions reference with FormattingAgent
+        self.formatting_agent._acronym_expansions_ref = self.answer_agent.acronym_expansions
+        
+        # Define workflow graph (v5.9.19: Added FORMAT step)
         self.workflow = {
             WorkflowStep.INIT: self._initialize_state,
             WorkflowStep.INTENT: self._analyze_intent_step,
             WorkflowStep.ENTITY: self._extract_entities_step,
             WorkflowStep.ANSWER: self._generate_answer_step,
+            WorkflowStep.FORMAT: self._format_response_step,     # v5.9.19: Agent #6
             WorkflowStep.COMPLETE: self._complete_workflow,
             WorkflowStep.ERROR: self._handle_error
         }
         
-        # Define state transitions
+        # Define state transitions (v5.9.19: ANSWER → FORMAT → COMPLETE)
         self.transitions = {
             WorkflowStep.INIT: WorkflowStep.INTENT,
             WorkflowStep.INTENT: WorkflowStep.ENTITY,
             WorkflowStep.ENTITY: WorkflowStep.ANSWER,
-            WorkflowStep.ANSWER: WorkflowStep.COMPLETE,
+            WorkflowStep.ANSWER: WorkflowStep.FORMAT,             # v5.9.19: Route to FORMAT
+            WorkflowStep.FORMAT: WorkflowStep.COMPLETE,           # v5.9.19: FORMAT → COMPLETE
             WorkflowStep.COMPLETE: None,
             WorkflowStep.ERROR: None
         }
@@ -12682,6 +13692,7 @@ class SimpleStateOrchestrator:
             intent_info=None,
             entity_info=None,
             answer=None,
+            formatting_info=None,       # v5.9.19: FormattingAgent output
             execution_steps=[],
             start_time=time.time(),
             current_step=WorkflowStep.INIT.value,
@@ -12722,10 +13733,18 @@ class SimpleStateOrchestrator:
                 "execution_time": execution_time,
                 "execution_steps": state['execution_steps'],
                 "success": state['error'] is None,
+                # v5.9.19: Formatting metadata from Agent #6
+                "formatting_metadata": {
+                    "template_used": state.get('formatting_info', {}).get('template_used', 'none') if state.get('formatting_info') else 'none',
+                    "template_key": state.get('formatting_info', {}).get('template_key', 'none') if state.get('formatting_info') else 'none',
+                    "confidence_score": state.get('formatting_info', {}).get('confidence_score', 0) if state.get('formatting_info') else 0,
+                    "confidence_breakdown": state.get('formatting_info', {}).get('confidence_breakdown', {}) if state.get('formatting_info') else {},
+                    "citations": state.get('formatting_info', {}).get('citations', []) if state.get('formatting_info') else [],
+                } if state.get('formatting_info') else None,
                 "metadata": {
                     "intent_confidence": state['intent_info'].get('confidence', 0) if state['intent_info'] else 0,
                     "entities": state['entity_info'].get('entities', []) if state['entity_info'] else [],
-                    "system_version": "Integrated_Database_SAMM_v5.0",
+                    "system_version": "Integrated_Database_SAMM_v5.9.19",
                     "workflow_completed": state['current_step'] == 'complete',
                     # Keep legacy metadata structure for Vue.js compatibility
                     "intent": state['intent_info'].get('intent', 'unknown') if state['intent_info'] else 'unknown',
@@ -12740,10 +13759,12 @@ class SimpleStateOrchestrator:
                     # Add HIL and trigger update status
                     "hil_updates_available": (len(self.intent_agent.hil_feedback_data) > 0 or 
                                             len(self.entity_agent.hil_feedback_data) > 0 or 
-                                            len(self.answer_agent.hil_feedback_data) > 0),
+                                            len(self.answer_agent.hil_feedback_data) > 0 or
+                                            len(self.formatting_agent.hil_feedback_data) > 0),
                     "trigger_updates_available": (len(self.intent_agent.trigger_updates) > 0 or 
                                                 len(self.entity_agent.trigger_updates) > 0 or 
-                                                len(self.answer_agent.trigger_updates) > 0),
+                                                len(self.answer_agent.trigger_updates) > 0 or
+                                                len(self.formatting_agent.trigger_updates) > 0),
                     # Enhanced entity agent status
                     "entity_extraction_method": state['entity_info'].get('extraction_method', 'unknown') if state['entity_info'] else 'unknown',
                     "entity_confidence": state['entity_info'].get('overall_confidence', 0) if state['entity_info'] else 0,
@@ -12796,6 +13817,10 @@ class SimpleStateOrchestrator:
                 feedback_data=answer_correction.get("feedback_data", {})
             )
         
+        # v5.9.19: Update Formatting Agent
+        if answer_correction and answer_correction.get("feedback_data", {}).get("preferred_template"):
+            results["formatting"] = self.formatting_agent.update_from_hil(answer_correction.get("feedback_data", {}))
+        
         print(f"[State Orchestrator] HIL updates completed: {results}")
         return results
     
@@ -12823,6 +13848,10 @@ class SimpleStateOrchestrator:
             new_relationships=new_relationships,
             trigger_data=trigger_data
         )
+        
+        # v5.9.19: Update Formatting Agent
+        if trigger_data:
+            results["formatting"] = self.formatting_agent.update_from_trigger(trigger_data)
         
         print(f"[State Orchestrator] Trigger updates completed: {results}")
         return results
@@ -12853,7 +13882,9 @@ class SimpleStateOrchestrator:
                 "answer_templates": sum(len(templates) for templates in self.answer_agent.answer_templates.values()),
                 "response_templates": len(self.answer_agent.samm_response_templates),
                 "acronym_expansions": len(self.answer_agent.acronym_expansions)
-            }
+            },
+            # v5.9.19: Agent #6 - Formatting & Confidence Scoring
+            "formatting_agent": self.formatting_agent.get_status()
         }
     
     def get_database_status(self) -> Dict[str, Any]:
@@ -13062,6 +14093,58 @@ class SimpleStateOrchestrator:
             state['answer'] = f"I apologize, but I encountered an error: {str(e)}"
         return state
 
+    def _format_response_step(self, state: AgentState) -> AgentState:
+        """
+        v5.9.19: Execute formatting step (Agent #6 - Formatting & Confidence Scoring).
+        Takes raw answer from Agent #4 and formats it using intent-based templates.
+        """
+        try:
+            print(f"\n[State Orchestrator] 🎨 Starting Agent #6 - Formatting & Confidence Scoring...")
+            print(f"[State Orchestrator]   Raw answer length: {len(state.get('answer', '')) if state.get('answer') else 0}")
+            print(f"[State Orchestrator]   Intent: {state['intent_info'].get('intent', 'unknown') if state.get('intent_info') else 'unknown'}")
+            
+            # Call FormattingAgent
+            formatting_result = self.formatting_agent.format_response(
+                raw_answer=state.get('answer', ''),
+                intent_info=state.get('intent_info', {}),
+                entity_info=state.get('entity_info', {}),
+                query=state.get('query', '')
+            )
+            
+            # Store formatting info in state
+            state['formatting_info'] = formatting_result
+            
+            # Replace answer with formatted version
+            if formatting_result and formatting_result.get('formatted_response'):
+                formatted_response = formatting_result['formatted_response']
+                if len(formatted_response) > 30:
+                    state['answer'] = formatted_response
+                    print(f"[State Orchestrator] ✅ Answer formatted successfully")
+                    print(f"[State Orchestrator]   Template: {formatting_result.get('template_used', 'unknown')}")
+                    print(f"[State Orchestrator]   Confidence: {formatting_result.get('confidence_score', 0):.2f}")
+                    print(f"[State Orchestrator]   Formatted length: {len(formatted_response)} chars")
+                else:
+                    print(f"[State Orchestrator] ⚠️ Formatted response too short, keeping original")
+            else:
+                print(f"[State Orchestrator] ⚠️ No formatted response, keeping original")
+            
+            state['execution_steps'].append(
+                f"Response formatted with template: {formatting_result.get('template_used', 'unknown')} "
+                f"(confidence: {formatting_result.get('confidence_score', 0):.2f})"
+            )
+            
+        except Exception as e:
+            print(f"[State Orchestrator] ❌ ERROR in formatting step: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # Graceful fallback - don't set error, just skip formatting
+            state['formatting_info'] = None
+            state['execution_steps'].append(f"Formatting skipped due to error: {str(e)}")
+            # NOTE: We don't set state['error'] here — formatting failure should NOT 
+            # stop the pipeline. The raw answer is still valid.
+        
+        return state
+
 
     def _complete_workflow(self, state: AgentState) -> AgentState:
         """Complete workflow"""
@@ -13079,7 +14162,7 @@ class SimpleStateOrchestrator:
 
 # Initialize integrated orchestrator with all agents
 orchestrator = SimpleStateOrchestrator()
-print("Integrated State Orchestrator initialized with Intent, Integrated Entity (Database), and Enhanced Answer agents")
+print("Integrated State Orchestrator initialized with Intent, Integrated Entity (Database), Enhanced Answer, and Formatting agents")
 
 @time_function
 def process_samm_query(query: str, chat_history: List = None, documents_context: List = None,
@@ -16625,8 +17708,9 @@ if __name__ == '__main__':
     two_hop_initialized = initialize_2hop_rag("samm_knowledge_graph.json")
     
     print("\n" + "="*90)
-    print("🚀 Complete Integrated SAMM ASIST System with Database Integration v5.9.12")
+    print("🚀 Complete Integrated SAMM ASIST System with Database Integration v5.9.19")
     print("   Entity Updates (E1.5.2) + Intent Updates (M1.3 HYBRID v8)")
+    print("   v5.9.19: FORMATTING AGENT (Agent #6) - 7 Templates, 29 Intent Mappings")
     print("   v5.9.12: BM25 RANKING + SEMANTIC MAPPING + INTENT FIXES")
     print("   v5.9.11: GOLD STANDARD TRAINING for verified Q&A patterns")
     print("   v5.9.4: N-Hop Path RAG (configurable 1-3+ hops) for Deep Relationship Traversal")
@@ -16641,7 +17725,7 @@ if __name__ == '__main__':
         print(f"📊 JSON KG (v5.9.3): {len(SAMM_JSON_KG.entities)} entities, {len(SAMM_JSON_KG.relationships)} relationships")
     print(f"🔗 2-Hop Path RAG: {'✅ Enabled' if two_hop_initialized else '❌ Disabled'}")
     print(f"🎯 Integrated Database Orchestration: {len(WorkflowStep)} workflow steps")
-    print(f"🔄 Integrated Agents: Intent → Integrated Entity (Database) → Enhanced Answer (Quality)")
+    print(f"🔄 Integrated Agents: Intent → Integrated Entity (Database) → Enhanced Answer (Quality) → Formatting (Agent #6)")
     print(f"🔐 Auth: {'OAuth (Auth0)' if oauth else 'Mock User'}")
     print(f"💾 Storage: {'Azure Cosmos DB' if cases_container_client else 'In-Memory'}")
     print(f"📁 Blob Storage: {'Azure' if blob_service_client else 'Disabled'}")
@@ -16713,6 +17797,7 @@ if __name__ == '__main__':
         print(f"• Intent Agent: {status['intent_agent']['learned_patterns']} learned patterns")
         print(f"• Integrated Entity Agent: {status['integrated_entity_agent']['custom_entities']} custom entities, {status['integrated_entity_agent']['samm_patterns']} SAMM patterns")
         print(f"• Enhanced Answer Agent: {status['enhanced_answer_agent']['answer_corrections']} stored corrections, {status['enhanced_answer_agent']['response_templates']} templates")
+        print(f"• Formatting Agent: {status['formatting_agent']['templates_count']} templates, {status['formatting_agent']['intent_mappings_count']} intent mappings")
     except:
         print("• Agent status: Initializing...")
     
